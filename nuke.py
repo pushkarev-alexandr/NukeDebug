@@ -1,3 +1,5 @@
+_all_nodes = {}
+
 class MenuItem:
     def __init__(self):
         pass
@@ -65,7 +67,12 @@ class Node:
         return self._data.get(name)
     
     def setName(self, name, uncollide=True, updateExpressions=False):
-        self._data["name"].setValue(name)
+        name = name.rstrip("0123456789")
+        class_node_names = [node.name() for node in _all_nodes.get(self.cls, [])]
+        index = 1
+        while f"{name}{index}" in class_node_names:
+            index += 1
+        self._data["name"].setValue(f"{name}{index}")
     
     def name(self):
         return self._data["name"].value()
@@ -94,7 +101,6 @@ class Read(Node):
         self._data["origlast"] = Knob("origlast", "")
         self._data["colorspace"] = Knob("colorspace", "Input Transform")
 
-_all_nodes = {}
 _root = Root()
 _menus = {'Nuke': Menu(), 'Nodes': Menu()}
 
@@ -115,6 +121,9 @@ def allNodes(filter=None):
 
 def getFileNameList(dir, splitSequences= False, extraInformation= False, returnDirs=True, returnHidden=False):
     pass
+
+def getFilename(message, pattern=None, default=None, favorites=None, type=None, multiple=False):
+    return input("Enter path: ").replace('\\', '/').strip('"')
 
 def menu(name: str):
     return _menus.get(name)
