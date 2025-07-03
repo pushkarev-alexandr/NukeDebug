@@ -1,4 +1,34 @@
-class Knob():
+class MenuItem:
+    def __init__(self):
+        pass
+
+class Menu(MenuItem):
+    def __init__(self):
+        super().__init__()
+
+class Format:
+    def __init__(self, name, width, height, pixelAspect=1.0):  # TODO takes at least 6 arguments
+        self._name = name
+        self._width = width
+        self._height = height
+        self._pixelAspect = pixelAspect
+
+    def name(self):
+        return self._name
+
+    def width(self):
+        return self._width
+    
+    def height(self):
+        return self._height
+    
+    def pixelAspect(self):
+        return self._pixelAspect
+    
+    def setName(self, name):
+        self._name = name
+
+class Knob:
     def __init__(self, name, label=None):
         self._name = name
         self._label = label if label else name
@@ -19,7 +49,7 @@ class File_Knob(Knob):
     def __init__(self, name, label=None):
         super().__init__(name, label)
 
-class Node():
+class Node:
     def __init__(self, cls):
         self.cls = cls
         self._data = {"name": Knob("name", "")}
@@ -66,6 +96,7 @@ class Read(Node):
 
 _all_nodes = {}
 _root = Root()
+_menus = {'Nuke': Menu(), 'Nodes': Menu()}
 
 def createNode(nodeClass: str, inpanel: bool = True) -> Node:
     if nodeClass == "Read":
@@ -84,3 +115,6 @@ def allNodes(filter=None):
 
 def getFileNameList(dir, splitSequences= False, extraInformation= False, returnDirs=True, returnHidden=False):
     pass
+
+def menu(name: str):
+    return _menus.get(name)
