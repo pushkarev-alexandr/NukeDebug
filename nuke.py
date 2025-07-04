@@ -1,4 +1,5 @@
 from typing import List
+import os, re
 
 _all_nodes = {}
 
@@ -37,6 +38,7 @@ class Knob:
         self._name = name
         self._label = label if label else name
         self._value = None
+        self._node = None
     
     def setValue(self, value):
         self._value = value
@@ -50,10 +52,18 @@ class Knob:
     def label(self):
         return self._label
 
+    def node(self):
+        return self._node
+
 class Array_Knob(Knob):
     def __init__(self, name, label=None):
         super().__init__(name, label)
         self._value = 0.0
+
+class Int_Knob(Array_Knob):
+    def __init__(self, name, label=None):
+        super().__init__(name, label)
+        self._value = 0
 
 class Boolean_Knob(Array_Knob):
     def __init__(self, name, label=None):
@@ -74,8 +84,35 @@ class File_Knob(EvalString_Knob):
     
     def fromUserText(self, s):
         """Assign string to knob, parses frame range off the end and opens file to get set the format."""
+
+        def get_exr_channels(file_path: str) -> list:
+            try:
+                import OpenEXR
+            except ImportError:
+                print("Install OpenEXR library to access loading channels information for EXR files")
+                return []
+
+            ch_map = {"r": "red", "g": "green", "b": "blue", "a": "alpha"}
+            channels = []
+            with OpenEXR.File(file_path) as exr_file:
+                for part in exr_file.parts:
+                    part_channels = []
+                    spl = []
+                    for channel in part.header.get("channels"):
+                        spl = channel.name.split(".")
+                        if len(spl)==2:
+                            spl[1] = ch_map.get(spl[1].lower(), spl[1])
+                        part_channels.append(".".join(spl))
+                    if spl and spl[0] == "rgba":
+                        part_channels.reverse()
+                    channels += part_channels
+
+            return channels
+
         spl = s.split(" ")
-        self.setValue(spl[0])
+        file_path = spl[0]
+        self.setValue(file_path)
+        first_frame = None
         if len(spl)>1:
             spl = spl[1].split("-")
             first_frame = spl[0]
@@ -83,6 +120,19 @@ class File_Knob(EvalString_Knob):
             if first_frame.isdigit() and last_frame.isdigit():
                 pass  # TODO выставить первый и последний кадр
         #  TODO выставить формат
+
+        # get channels
+        if os.path.splitext(file_path)[1].lower() == ".exr" and self.node() and isinstance(first_frame, str) and first_frame.isdigit():
+            matches = list(re.finditer(r"#+|%\d+d", file_path))
+            if matches:
+                last_match = matches[-1]
+                match_str = last_match.group()
+                padding = len(match_str) if match_str.startswith('#') else int(re.search(r'\d+', match_str).group())
+                start, end = last_match.start(), last_match.end()
+                file_path = file_path[:start] + first_frame.zfill(padding) + file_path[end:]
+            if os.path.isfile(file_path):
+                self.node()._channels = get_exr_channels(file_path)
+
 
 class Unsigned_Knob(Array_Knob):
     def __init__(self, name, label=None):
@@ -124,6 +174,11 @@ class Node:
     def knob(self, name):
         return self._data.get(name)
     
+    def addKnob(self, k: Knob):
+        """Add knob k to this node or panel."""
+        self._data[k.name()] = k
+        k._node = self
+
     def setName(self, name, uncollide=True, updateExpressions=False):
         name = name.rstrip("0123456789")
         class_node_names = [node.name() for node in _all_nodes.get(self.cls, [])]
@@ -183,6 +238,7 @@ class Root(Node):
     def __init__(self):
         super().__init__("Root")
         capital_disk_letter = __file__[0].upper() + __file__[1:] if __file__ else __file__
+        self.addKnob(File_Knob("name", ""))
         self._data["name"].setValue(capital_disk_letter)
     
     def name(self):
@@ -192,22 +248,30 @@ class Root(Node):
 class Read(Node):
     def __init__(self):
         super().__init__("Read")
-        self._data["file"] = File_Knob("file", "File")
-        self._data["first"] = Knob("first", "Frame Range")
-        self._data["last"] = Knob("last", "")
-        self._data["origfirst"] = Knob("origfirst", "Original Range")
-        self._data["origlast"] = Knob("origlast", "")
-        self._data["colorspace"] = Knob("colorspace", "Input Transform")
+        self.addKnob(File_Knob("file", "File"))
+        self.addKnob(Int_Knob("first", "Frame Range"))
+        self.addKnob(Int_Knob("last", ""))
+        self.addKnob(Int_Knob("origfirst", "Original Range"))
+        self.addKnob(Int_Knob("origlast", ""))
+        self.addKnob(Enumeration_Knob("colorspace", "Input Transform"))
+
         self._channels = ['rgba.red', 'rgba.green', 'rgba.blue', 'rgba.alpha']
 
 class Copy(Node):
     def __init__(self):
         super().__init__("Copy")
         for i in range(4):
-            self._data[f"from{i}"] = Channel_Knob(f"from{i}", "Copy channel")
-            self._data[f"to{i}"] = Channel_Knob(f"to{i}", "")
-        self._data["channels"] = ChannelMask_Knob("channels", "Layer Copy")
-        self._data["metainput"] = Enumeration_Knob("metainput", "metadata from")
+            self.addKnob(Channel_Knob(f"from{i}", "Copy channel"))
+            self.addKnob(Channel_Knob(f"to{i}", ""))
+        self.addKnob(ChannelMask_Knob("channels", "Layer Copy"))
+        self.addKnob(Enumeration_Knob("metainput", "metadata from"))
+
+class Unpremult(Node):
+    def __init__(self):
+        super().__init__("Copy")
+        self.addKnob(ChannelMask_Knob("channels", "divide"))
+        self.addKnob(Channel_Knob("alpha", "by"))
+        self.addKnob(Boolean_Knob("invert", ""))
 
 _root = Root()
 _menus = {'Nuke': Menu(), 'Nodes': Menu()}
@@ -215,7 +279,8 @@ _menus = {'Nuke': Menu(), 'Nodes': Menu()}
 def createNode(nodeClass: str, inpanel: bool = True) -> Node:
     node_types = {
         "Read": Read,
-        "Copy": Copy
+        "Copy": Copy,
+        "Unpremult": Unpremult
     }
 
     if nodeClass in node_types:
