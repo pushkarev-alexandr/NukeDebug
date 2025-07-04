@@ -78,6 +78,10 @@ class EvalString_Knob(String_Knob):
     def __init__(self, name, label=None):
         super().__init__(name, label)
 
+class Multiline_Eval_String_Knob(EvalString_Knob):
+    def __init__(self, name, label=None):
+        super().__init__(name, label)
+
 class File_Knob(EvalString_Knob):
     def __init__(self, name, label=None):
         super().__init__(name, label)
@@ -100,6 +104,8 @@ class File_Knob(EvalString_Knob):
                     spl = []
                     for channel in part.header.get("channels"):
                         spl = channel.name.split(".")
+                        if len(spl)==1 and spl[0].lower() in ch_map:
+                            spl = ["rgba", spl[0]]
                         if len(spl)==2:
                             spl[1] = ch_map.get(spl[1].lower(), spl[1])
                         part_channels.append(".".join(spl))
@@ -122,9 +128,9 @@ class File_Knob(EvalString_Knob):
         #  TODO выставить формат
 
         # get channels
-        if os.path.splitext(file_path)[1].lower() == ".exr" and self.node() and isinstance(first_frame, str) and first_frame.isdigit():
+        if os.path.splitext(file_path)[1].lower() == ".exr" and self.node():
             matches = list(re.finditer(r"#+|%\d+d", file_path))
-            if matches:
+            if matches and isinstance(first_frame, str) and first_frame.isdigit():
                 last_match = matches[-1]
                 match_str = last_match.group()
                 padding = len(match_str) if match_str.startswith('#') else int(re.search(r'\d+', match_str).group())
@@ -132,7 +138,6 @@ class File_Knob(EvalString_Knob):
                 file_path = file_path[:start] + first_frame.zfill(padding) + file_path[end:]
             if os.path.isfile(file_path):
                 self.node()._channels = get_exr_channels(file_path)
-
 
 class Unsigned_Knob(Array_Knob):
     def __init__(self, name, label=None):
@@ -156,10 +161,14 @@ class ChannelMask_Knob(Channel_Knob):
 class Node:
     def __init__(self, cls):
         self.cls = cls
-        self._data = {"name": Knob("name", ""),
-                      "selected": Boolean_Knob("selected", ""),
-                      "xpos": Array_Knob("xpos", "INVISIBLE"),
-                      "ypos": Array_Knob("ypos", "INVISIBLE")}
+        self._data = {}
+        self.addKnob(String_Knob("name", ""))
+        self.addKnob(Boolean_Knob("selected", ""))
+        self.addKnob(Array_Knob("xpos", "INVISIBLE"))
+        self.addKnob(Array_Knob("ypos", "INVISIBLE"))
+        self.addKnob(Boolean_Knob("postage_stamp", "Postage Stamp"))
+        self.addKnob(Multiline_Eval_String_Knob("label", "Label"))
+
         self._screenWidth = 80
         self._screenHeight = 18
         self._channels = []
@@ -192,6 +201,7 @@ class Node:
 
     def channels(self) -> List[str]:
         """List channels output by this node."""
+        # TODO Сделать чтобы нода спрашивала у нод сверху какие каналы есть
         return self._channels
 
     def setInput(self, i, node):
@@ -245,6 +255,10 @@ class Root(Node):
         val = self._data["name"].value()
         return val if val else "Root"
 
+class Dot(Node):
+    def __init__(self):
+        super().__init__("Dot")
+
 class Read(Node):
     def __init__(self):
         super().__init__("Read")
@@ -273,6 +287,29 @@ class Unpremult(Node):
         self.addKnob(Channel_Knob("alpha", "by"))
         self.addKnob(Boolean_Knob("invert", ""))
 
+class Shuffle2(Node):
+    def __init__(self):
+        super().__init__("Shuffle2")
+        self.addKnob(Channel_Knob("in1", ""))
+
+class Remove(Node):
+    def __init__(self):
+        super().__init__("Remove")
+        self.addKnob(Enumeration_Knob("operation", ""))
+        self.addKnob(ChannelMask_Knob("channels", ""))
+
+class Merge2(Node):
+    def __init__(self):
+        super().__init__("Merge2")
+        self.addKnob(Enumeration_Knob("operation", ""))
+        self.addKnob(Channel_Knob("output", ""))
+
+class MergeExpression(Node):
+    def __init__(self):
+        super().__init__("MergeExpression")
+        for i in range(4):
+            self.addKnob(EvalString_Knob(f"expr{i}", "="))
+
 _root = Root()
 _menus = {'Nuke': Menu(), 'Nodes': Menu()}
 
@@ -280,7 +317,13 @@ def createNode(nodeClass: str, inpanel: bool = True) -> Node:
     node_types = {
         "Read": Read,
         "Copy": Copy,
-        "Unpremult": Unpremult
+        "Unpremult": Unpremult,
+        "Shuffle2": Shuffle2,
+        "Remove": Remove,
+        "Merge2": Merge2,
+        "Group": Group,
+        "MergeExpression": MergeExpression,
+        "Dot": Dot
     }
 
     if nodeClass in node_types:
@@ -297,6 +340,13 @@ def allNodes(filter=None):
     if filter:
         return _all_nodes.get(filter, [])
     return [i for lst in _all_nodes.values() for i in lst]
+
+def toNode(s: str) -> Node:
+    """Search for a node in the DAG by name and return it as a Python object."""
+    for node in allNodes():
+        if node.name() == s:
+            return node
+    return None
 
 def getFileNameList(dir, splitSequences= False, extraInformation= False, returnDirs=True, returnHidden=False):
     pass
