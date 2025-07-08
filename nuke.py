@@ -46,7 +46,7 @@ class Knob:
         return True
     
     def value(self):
-        return self._value
+        return self._value.split("\t\t\t")[0]
 
     def name(self):
         return self._name
@@ -158,11 +158,13 @@ class Enumeration_Knob(Unsigned_Knob):
         """Set the current value. If item is of an Integer type it will treat it as an index to the enum, otherwise as a value."""
         if isinstance(item, int) and item < len(self._values):
             self._value = self._values[item]
-        elif item in self._values:
-            self._value = item
+            return True
         else:
-            return False
-        return True
+            for v in self._values:
+                if v.split("\t")[0] == item:
+                    self._value = item
+                    return True
+        return False
 
     def values(self):
         return self._values
@@ -266,10 +268,14 @@ class Group(Node):
 class Root(Node):
     def __init__(self):
         super().__init__("Root")
-        capital_disk_letter = __file__[0].upper() + __file__[1:] if __file__ else __file__
-        self.addKnob(File_Knob("name", ""))
-        self._data["name"].setValue(capital_disk_letter)
-    
+        self._data["name"].setValue(__file__)
+        kn = Enumeration_Knob("colorManagement", "color management")
+        kn.setValues(["Nuke", "OCIO"])
+        self.addKnob(kn)
+        kn = Enumeration_Knob("OCIO_config", "OCIO config")
+        kn.setValues(['aces_1.2\tACES/aces_1.2\t\t', 'fn-nuke_cg-config-v1.0.0_aces-v1.3_ocio-v2.1\tACES/fn-nuke_cg-config-v1.0.0_aces-v1.3_ocio-v2.1\t\tcg-config-v1.0.0_aces-v1.3_ocio-v2.1', 'fn-nuke_studio-config-v1.0.0_aces-v1.3_ocio-v2.1\tACES/fn-nuke_studio-config-v1.0.0_aces-v1.3_ocio-v2.1\t\tstudio-config-v1.0.0_aces-v1.3_ocio-v2.1', 'nuke-default', 'custom'])
+        self.addKnob(kn)
+
     def name(self):
         val = self._data["name"].value()
         return val if val else "Root"
@@ -286,9 +292,25 @@ class Read(Node):
         self.addKnob(Int_Knob("last", ""))
         self.addKnob(Int_Knob("origfirst", "Original Range"))
         self.addKnob(Int_Knob("origlast", ""))
+        kn = Enumeration_Knob("frame_mode", "Frame")
+        kn.setValues(['expression', 'start at', 'offset'])
+        self.addKnob(kn)
+        self.addKnob(String_Knob("frame", ""))
         self.addKnob(Enumeration_Knob("colorspace", "Input Transform"))
 
         self._channels = ['rgba.red', 'rgba.green', 'rgba.blue', 'rgba.alpha']
+
+class Write(Node):
+    def __init__(self):
+        super().__init__("Write")
+        self.addKnob(File_Knob("file", ""))
+        kn = Enumeration_Knob("file_type", "file type")
+        kn.setValues([" ", "cin", "dpx", "exr", "hdr", "jpeg", "mov\t\t\tffmpeg", "mxf", "null", "pic", "png", "sgi", "targa", "tiff", "xpm", "yuv"])
+        self.addKnob(kn)
+        kn = Enumeration_Knob("mov64_codec", "Codec")
+        kn.setValues(['', '', '', 'ap4x\t\x07', 'ap4h\t\x07', 'apch\t\x07', 'apcn\t\x07', 'apcs\t\x07', 'apco\t\x07', 'mp1v\t\x07', 'rle \tAnimation', 'appr\tApple ProRes', 'AVdn\tAvid DNxHD', 'AVdh\tAvid DNxHR', 'h264\tH.264', 'mjpa\tMotion JPEG A', 'mjpb\tMotion JPEG B', 'mp4v\tMPEG-4', 'jpeg\tPhoto - JPEG', 'png \tPNG', 'v210\tUncompressed'])
+        self.addKnob(kn)
+        self.addKnob(Enumeration_Knob("colorspace", "Output Transform"))
 
 class Copy(Node):
     def __init__(self):
@@ -355,6 +377,12 @@ class FrameRange(Node):
         self.addKnob(Array_Knob("first_frame", "frame range"))
         self.addKnob(Array_Knob("last_frame", ""))
 
+class AppendClip(Node):
+    def __init__(self):
+        super().__init__("AppendClip")
+        self.addKnob(Array_Knob("firstFrame", "First Frame"))
+        self.addKnob(Array_Knob("lastFrame", "Last Frame"))
+
 _root = Root()
 _menus = {'Nuke': Menu(), 'Nodes': Menu()}
 
@@ -371,7 +399,9 @@ def createNode(nodeClass: str, inpanel: bool = True) -> Node:
         "Dot": Dot,
         "Reformat": Reformat,
         "TimeClip": TimeClip,
-        "FrameRange": FrameRange
+        "FrameRange": FrameRange,
+        "AppendClip": AppendClip,
+        "Write": Write
     }
 
     if nodeClass in node_types:
@@ -397,7 +427,33 @@ def toNode(s: str) -> Node:
     return None
 
 def getFileNameList(dir, splitSequences= False, extraInformation= False, returnDirs=True, returnHidden=False):
-    pass
+    if not os.path.isdir(dir):
+        return []
+
+    files = [f for f in os.listdir(dir) if os.path.isfile(os.path.join(dir, f))]
+    seq_dict = {}
+    singles = []
+
+    seq_re = re.compile(r"^(.*?)(\d+)(\.[^.]+)$")
+
+    for f in files:
+        m = seq_re.match(f)
+        if m:
+            prefix, frame, ext = m.groups()
+            pattern = f"{prefix}#{ext}"
+            if pattern not in seq_dict:
+                seq_dict[pattern] = []
+            seq_dict[pattern].append(int(frame))
+        else:
+            singles.append(f)
+
+    result = []
+    for pattern, frames in seq_dict.items():
+        if frames:
+            frames.sort()
+            result.append(f"{pattern} {frames[0]}-{frames[-1]}")
+    result.extend(singles)
+    return result
 
 def getFilename(message, pattern=None, default=None, favorites=None, type=None, multiple=False):
     return input("Enter path: ").replace('\\', '/').strip('"')
