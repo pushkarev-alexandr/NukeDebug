@@ -40,8 +40,10 @@ class Knob:
         self._value = None
         self._node = None
     
-    def setValue(self, value):
-        self._value = value
+    def setValue(self, val, chan=None) -> bool:
+        """Sets the value 'val' at channel 'chan'."""
+        self._value = val
+        return True
     
     def value(self):
         return self._value
@@ -146,7 +148,24 @@ class Unsigned_Knob(Array_Knob):
 class Enumeration_Knob(Unsigned_Knob):
     def __init__(self, name, label=None):
         super().__init__(name, label)
-        self.value = None
+        self._values = []
+        self._value = None
+    
+    def setValues(self, items: List[str]):
+        self._values = items
+
+    def setValue(self, item):
+        """Set the current value. If item is of an Integer type it will treat it as an index to the enum, otherwise as a value."""
+        if isinstance(item, int) and item < len(self._values):
+            self._value = self._values[item]
+        elif item in self._values:
+            self._value = item
+        else:
+            return False
+        return True
+
+    def values(self):
+        return self._values
 
 class Channel_Knob(Knob):
     def __init__(self, name, label=None):
@@ -310,6 +329,32 @@ class MergeExpression(Node):
         for i in range(4):
             self.addKnob(EvalString_Knob(f"expr{i}", "="))
 
+class Reformat(Node):
+    def __init__(self):
+        super().__init__("Reformat")
+        type_kn = Enumeration_Knob("type", "")
+        type_kn.setValues(["to format", "to box", "scale"])
+        self.addKnob(type_kn)
+        self.addKnob(Array_Knob("box_width", "width/height"))
+        self.addKnob(Array_Knob("box_height", ""))
+        self.addKnob(Boolean_Knob("box_fixed", "force this shape"))
+        resize_kn = Enumeration_Knob("resize", "resize type")
+        resize_kn.setValues(["none", "width", "height", "fit", "fill", "distort"])
+        self.addKnob(resize_kn)
+        self.addKnob(Boolean_Knob("black_outside", "black outside"))
+
+class TimeClip(Node):
+    def __init__(self):
+        super().__init__("TimeClip")
+        self.addKnob(Int_Knob("first", "frame range"))
+        self.addKnob(Int_Knob("last", ""))
+
+class FrameRange(Node):
+    def __init__(self):
+        super().__init__("FrameRange")
+        self.addKnob(Array_Knob("first_frame", "frame range"))
+        self.addKnob(Array_Knob("last_frame", ""))
+
 _root = Root()
 _menus = {'Nuke': Menu(), 'Nodes': Menu()}
 
@@ -323,7 +368,10 @@ def createNode(nodeClass: str, inpanel: bool = True) -> Node:
         "Merge2": Merge2,
         "Group": Group,
         "MergeExpression": MergeExpression,
-        "Dot": Dot
+        "Dot": Dot,
+        "Reformat": Reformat,
+        "TimeClip": TimeClip,
+        "FrameRange": FrameRange
     }
 
     if nodeClass in node_types:
@@ -359,3 +407,6 @@ def menu(name: str):
 
 def message(prompt):
     print(prompt)
+
+def execute(nameOrNode, start, end, incr, views, continueOnError=False):
+    pass
