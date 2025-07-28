@@ -1,6 +1,8 @@
 from typing import List
 import os, re
 
+STARTLINE = 1
+
 _all_nodes = {}
 
 class MenuItem:
@@ -39,6 +41,8 @@ class Knob:
         self._label = label if label else name
         self._value = None
         self._node = None
+        self._flag = 0
+        self._tooltip: str = ""
     
     def setValue(self, val, chan=None) -> bool:
         """Sets the value 'val' at channel 'chan'."""
@@ -56,6 +60,23 @@ class Knob:
 
     def node(self):
         return self._node
+
+    def clearFlag(self, f):
+        self._flag = 0
+
+    def flag(self, f) -> bool:
+        """Returns whether the input flag is set.
+        TODO Reimplement to return bool value"""
+        return self._flag
+
+    def setFlag(self, f):
+        self._flag = f
+
+    def setTooltip(self, s: str) -> None:
+        self._tooltip = s
+    
+    def tooltip(self) -> str:
+        return self._tooltip
 
 class Array_Knob(Knob):
     def __init__(self, name, label=None):
@@ -132,7 +153,7 @@ class File_Knob(EvalString_Knob):
         # get channels
         if os.path.splitext(file_path)[1].lower() == ".exr" and self.node():
             matches = list(re.finditer(r"#+|%\d+d", file_path))
-            if matches and isinstance(first_frame, str) and first_frame.isdigit():
+            if matches and isinstance(first_frame, str) and first_frame and first_frame.isdigit():
                 last_match = matches[-1]
                 match_str = last_match.group()
                 padding = len(match_str) if match_str.startswith('#') else int(re.search(r'\d+', match_str).group())
@@ -466,3 +487,6 @@ def message(prompt):
 
 def execute(nameOrNode, start, end, incr, views, continueOnError=False):
     pass
+
+def ask(prompt: str) -> bool:
+    return input(prompt).lower() in ['yes', 'y'] 
