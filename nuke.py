@@ -1,7 +1,12 @@
-from typing import Union, List
+from typing import Union, List, Callable
 import os, re, sys
 
+from PySide6.QtWidgets import QApplication, QDialog, QLineEdit, QCheckBox, QComboBox, QPlainTextEdit, QLabel, QWidget, QWidgetItem 
+from PySide6.QtGui import QIntValidator
+
 STARTLINE = 1
+
+app = QApplication(sys.argv)
 
 _all_nodes = {}
 _pluginPath: List[str] = [os.path.expanduser("~/.nuke").replace("\\", "/")]
@@ -13,6 +18,23 @@ class MenuItem:
 class Menu(MenuItem):
     def __init__(self):
         super().__init__()
+    
+    def addCommand(self, name: str, command: Union[str, Callable] = None, shortcut: str = "", icon: str = "", tooltip: str = "", index: int = -1, readonly: bool = False) -> MenuItem:
+        """
+        Add a new command to this menu/toolbar. Note that when invoked, the command is automatically enclosed in an undo group, so that undo/redo functionality works. Optional arguments can be specified by name. Note that if the command argument is not specified, then the command will be auto-created as a "nuke.createNode()" using the name argument as the node to create.
+        Example: menubar = nuke.menu('Nuke') fileMenu = menubar.findItem('File') fileMenu.addCommand('NewCommand', 'print 10', shortcut='t')
+        Args:
+            name (str): The name for the menu/toolbar item. The name may contain submenu names delimited by '/' or '', and submenus are created as needed.
+            command (Union[str, Callable]): Optional. The command to add to the menu/toolbar. This can be a string to evaluate or a Python Callable (function, method, etc) to run.
+            shortcut (str): Optional. The keyboard shortcut for the command, such as 'R', 'F5' or 'Ctrl-H'. Note that this overrides pre-existing other uses for the shortcut.
+            icon (str): Optional. An icon for the command. This should be a path to an icon in the nuke.pluginPath() directory. If the icon is not specified, Nuke will automatically try to find an icon with the name argument and .png appended to it.
+            tooltip (str): Optional. The tooltip text, displayed on mouseover for toolbar buttons.
+            index (int): Optional. The position to insert the new item in, in the menu/toolbar. This defaults to last in the menu/toolbar.
+            readonly (bool): Optional. True/False for whether the item should be available when the menu is invoked in a read-only context.
+        Returns:
+            MenuItem: The menu/toolbar item that was added to hold the command.
+        """
+        pass
 
 class Format:
     def __init__(self, name, width, height, pixelAspect=1.0):  # TODO takes at least 6 arguments
@@ -44,14 +66,18 @@ class Knob:
         self._node = None
         self._flag = 0
         self._tooltip: str = ""
-    
+        self._visible = True
+        self._pyside_object: QWidget = QWidget()
+        self._pyside_object_label_item: QWidgetItem = None
+        self._panel = None
+
     def setValue(self, val, chan=None) -> bool:
-        """Sets the value 'val' at channel 'chan'."""
+        """Sets the value `val` at channel `chan`."""
         self._value = val
         return True
     
     def value(self):
-        return self._value.split("\t\t\t")[0]
+        return self._value.split("\t\t\t")[0] if isinstance(self._value, str) else self._value
 
     def name(self):
         return self._name
@@ -75,9 +101,27 @@ class Knob:
 
     def setTooltip(self, s: str) -> None:
         self._tooltip = s
-    
+        self._pyside_object.setToolTip(s)
+
+    def setVisible(self, visible: bool) -> None:
+        """Show or hide the knob."""
+        self._visible = visible
+        self._pyside_object.setVisible(visible)
+        if self._pyside_object_label_item and self._pyside_object_label_item.widget():
+            self._pyside_object_label_item.widget().setVisible(visible)
+
     def tooltip(self) -> str:
         return self._tooltip
+
+    def visible(self) -> bool:
+        """
+        Returns:
+            bool: True if the knob is visible, False if it's hidden.
+        """
+        return self._visible
+
+    def _setPanel(self, panel):
+        self._panel = panel
 
 class Array_Knob(Knob):
     def __init__(self, name, label=None):
@@ -87,16 +131,57 @@ class Array_Knob(Knob):
 class Int_Knob(Array_Knob):
     def __init__(self, name, label=None):
         super().__init__(name, label)
-        self._value = 0
+        self._value: int = 0
+        self._pyside_object: QLineEdit = QLineEdit()
+        self._pyside_object.setValidator(QIntValidator())
+    
+    def setValue(self, val: int) -> bool:
+        self._value = val
+        self._pyside_object.setText(str(val))
+        return True
+    
+    def _setPanel(self, panel):
+        super()._setPanel(panel)
+        def handle_text_changed():
+            self._value = int(self._pyside_object.text())
+            self._panel.knobChanged(self)
+        self._pyside_object.textChanged.connect(handle_text_changed)
 
 class Boolean_Knob(Array_Knob):
     def __init__(self, name, label=None):
         super().__init__(name, label)
-        self._value = False
+        self._value: bool = False
+        self._pyside_object: QCheckBox = QCheckBox(self._label)
+    
+    def setValue(self, b: bool) -> bool:
+        """Set the boolean value of this knob."""
+        self._value = b
+        self._pyside_object.setChecked(b)
+        return True
+
+    def _setPanel(self, panel):
+        super()._setPanel(panel)
+        def handle_toggled():
+            self._value = self._pyside_object.isChecked()
+            self._panel.knobChanged(self)
+        self._pyside_object.toggled.connect(handle_toggled)
 
 class String_Knob(Knob):
     def __init__(self, name, label=None):
         super().__init__(name, label)
+        self._value: str = ""
+        self._pyside_object: QLineEdit = QLineEdit()
+    
+    def setValue(self, val, view='default'):
+        self._value = val
+        self._pyside_object.setText(val)
+
+    def _setPanel(self, panel):
+        super()._setPanel(panel)
+        def handle_text_changed():
+            self._value = self._pyside_object.text()
+            self._panel.knobChanged(self)
+        self._pyside_object.textChanged.connect(handle_text_changed)
 
 class EvalString_Knob(String_Knob):
     def __init__(self, name, label=None):
@@ -105,6 +190,30 @@ class EvalString_Knob(String_Knob):
 class Multiline_Eval_String_Knob(EvalString_Knob):
     def __init__(self, name, label=None):
         super().__init__(name, label)
+        self._pyside_object: QPlainTextEdit = QPlainTextEdit()
+    
+    def setValue(self, val, view='default'):
+        self._value = val
+        self._pyside_object.setPlainText(val)
+    
+    def _setPanel(self, panel):
+        super()._setPanel(panel)
+        def handle_text_changed():
+            self._value = self._pyside_object.toPlainText()
+            self._panel.knobChanged(self)
+        self._pyside_object.textChanged.connect(handle_text_changed)
+
+class Text_Knob(Knob):
+    def __init__(self, name, label=None):
+        super().__init__(name, label)
+        self._value: str = ""
+        self._pyside_object: QLabel = QLabel()
+    
+    def setValue(self, val, chan=None) -> bool:
+        """Sets the value `val` at channel `chan`."""
+        self._value = val
+        self._pyside_object.setText(val)
+        return True
 
 class File_Knob(EvalString_Knob):
     def __init__(self, name, label=None):
@@ -168,13 +277,17 @@ class Unsigned_Knob(Array_Knob):
         super().__init__(name, label)
 
 class Enumeration_Knob(Unsigned_Knob):
-    def __init__(self, name, label=None):
+    def __init__(self, name, label = None, values: List[str] = []):
         super().__init__(name, label)
-        self._values = []
-        self._value = None
+        self._values: List[str] = []
+        self._pyside_object: QComboBox = QComboBox()
+        self.setValues(values)
+        self._value = values[0] if values else None
     
     def setValues(self, items: List[str]):
         self._values = items
+        self._pyside_object.clear()
+        self._pyside_object.addItems(items)
 
     def setValue(self, item):
         """Set the current value. If item is of an Integer type it will treat it as an index to the enum, otherwise as a value."""
@@ -190,6 +303,10 @@ class Enumeration_Knob(Unsigned_Knob):
 
     def values(self):
         return self._values
+
+    def _setPanel(self, panel):
+        super()._setPanel(panel)
+        self._pyside_object.currentIndexChanged.connect(lambda: self._panel.knobChanged(self))
 
 class Channel_Knob(Knob):
     def __init__(self, name, label=None):
