@@ -1,9 +1,10 @@
-from typing import List
-import os, re
+from typing import Union, List
+import os, re, sys
 
 STARTLINE = 1
 
 _all_nodes = {}
+_pluginPath: List[str] = [os.path.expanduser("~/.nuke").replace("\\", "/")]
 
 class MenuItem:
     def __init__(self):
@@ -490,3 +491,27 @@ def execute(nameOrNode, start, end, incr, views, continueOnError=False):
 
 def ask(prompt: str) -> bool:
     return input(prompt).lower() in ['yes', 'y'] 
+
+def pluginAddPath(args: Union[str, List[str]], addToSysPath: bool = True):
+    """Adds all the paths to the beginning of the Nuke plugin path. If the path already exists in the list of plugin paths, it is moved to the start. If this command is executed inside an init.py then the init.py in the path will be executed. It also adds the paths to the sys.path, if addToSysPath is True."""
+    if isinstance(args, str):
+        args = [args]
+    for arg in args:
+        if arg in _pluginPath:
+            _pluginPath.remove(arg)
+        _pluginPath.insert(0, arg)
+        if addToSysPath:
+            sys.path.insert(0, arg)
+
+def pluginAppendPath(args, addToSysPath: bool = True):
+    """Add a filepath to the end of the Nuke plugin path. If the path already exists in the list of plugin paths, it will remain at its current position. It also appends the paths to the sys.path, if addToSysPath is True."""
+    for arg in args:
+        if arg not in _pluginPath:
+            _pluginPath.append(arg)
+        if addToSysPath:
+            sys.path.append(arg)
+
+def pluginPath() -> List[str]:
+    """List all the directories Nuke will search in for plugins.
+    The built-in default is `~/.nuke` and the 'plugins' directory from the same location the NUKE executable file is in. Setting the environment variable `$NUKE_PATH` to a colon-separated list of directories will replace the `~/.nuke` with your own set of directories, but the plugins directory is always on the end."""
+    return _pluginPath
