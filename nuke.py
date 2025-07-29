@@ -1,7 +1,7 @@
 from typing import Union, List, Callable
 import os, re, sys
 
-from PySide6.QtWidgets import QApplication, QDialog, QLineEdit, QCheckBox, QComboBox, QPlainTextEdit, QLabel, QWidget, QWidgetItem 
+from PySide6.QtWidgets import QApplication, QLineEdit, QCheckBox, QComboBox, QPlainTextEdit, QLabel, QWidget, QWidgetItem, QPushButton
 from PySide6.QtGui import QIntValidator
 
 STARTLINE = 1
@@ -197,7 +197,7 @@ class Multiline_Eval_String_Knob(EvalString_Knob):
         self._pyside_object.setPlainText(val)
     
     def _setPanel(self, panel):
-        super()._setPanel(panel)
+        Knob._setPanel(self, panel)
         def handle_text_changed():
             self._value = self._pyside_object.toPlainText()
             self._panel.knobChanged(self)
@@ -317,6 +317,19 @@ class ChannelMask_Knob(Channel_Knob):
     def __init__(self, name, label=None):
         super().__init__(name, label)
         self._value = "none"
+
+class Script_Knob(String_Knob):
+    def __init__(self, name, label=None):
+        super().__init__(name, label)
+        self._pyside_object: QPushButton = QPushButton(self._label)
+    
+    def _setPanel(self, panel):
+        Knob._setPanel(self, panel)
+        self._pyside_object.clicked.connect(lambda: self._panel.knobChanged(self))
+
+class PyScript_Knob(Script_Knob):
+    def __init__(self, name, label=None):
+        super().__init__(name, label)
 
 class Node:
     def __init__(self, cls):
