@@ -8,7 +8,6 @@ STARTLINE = 1
 
 app = QApplication(sys.argv)
 
-_all_nodes = {}
 _pluginPath: List[str] = [os.path.expanduser("~/.nuke").replace("\\", "/")]
 
 class MenuItem:
@@ -332,8 +331,7 @@ class PyScript_Knob(Script_Knob):
         super().__init__(name, label)
 
 class Node:
-    def __init__(self, cls):
-        self.cls = cls
+    def __init__(self):
         self._data = {}
         self.addKnob(String_Knob("name", ""))
         self.addKnob(Boolean_Knob("selected", ""))
@@ -345,13 +343,13 @@ class Node:
         self._screenWidth = 80
         self._screenHeight = 18
         self._channels = []
-        self.setName(cls)
+        self.setName(self.__class__.__name__)
     
     def __getitem__(self, key):
         return self._data[key]
 
     def Class(self):
-        return self.cls
+        return self.__class__.__name__
 
     def knob(self, name):
         return self._data.get(name)
@@ -363,9 +361,9 @@ class Node:
 
     def setName(self, name, uncollide=True, updateExpressions=False):
         name = name.rstrip("0123456789")
-        class_node_names = [node.name() for node in _all_nodes.get(self.cls, [])]
+        node_names = [node.name() for node in allNodes()]
         index = 1
-        while f"{name}{index}" in class_node_names:
+        while f"{name}{index}" in node_names:
             index += 1
         self._data["name"].setValue(f"{name}{index}")
     
@@ -381,6 +379,10 @@ class Node:
         """Connect input i to node if canSetInput() returns true."""
         # TODO
         pass
+
+    def isSelected(self) -> bool:
+        """Returns the current selection state of the node. This is the same as checking the 'selected' knob."""
+        return self._data["selected"].value()
 
     def setSelected(self, selected):
         """Set the selection state of the node. This is the same as changing the 'selected' knob."""
@@ -415,12 +417,25 @@ class Node:
 
 class Group(Node):
     def __init__(self):
-        super().__init__("Group")
+        super().__init__()
+        self._nodes: List[Node] = []
+    
+    def nodes(self) -> List[Node]:
+        """List of nodes in group."""
+        return self._nodes
 
-class Root(Node):
+    def selectedNodes(self) -> list:
+        """Selected nodes."""
+        res = []
+        for n in self._nodes:
+            selected = n.isSelected()
+            if selected:
+                res.append(n)
+        return res
+
+class Root(Group):
     def __init__(self):
-        super().__init__("Root")
-        self._data["name"].setValue(__file__)
+        super().__init__()
         kn = Enumeration_Knob("colorManagement", "color management")
         kn.setValues(["Nuke", "OCIO"])
         self.addKnob(kn)
@@ -431,14 +446,17 @@ class Root(Node):
     def name(self):
         val = self._data["name"].value()
         return val if val else "Root"
+    
+    def setName(self, name):
+        self._data["name"].setValue(__file__)
 
 class Dot(Node):
     def __init__(self):
-        super().__init__("Dot")
+        super().__init__()
 
 class Read(Node):
     def __init__(self):
-        super().__init__("Read")
+        super().__init__()
         self.addKnob(File_Knob("file", "File"))
         self.addKnob(Int_Knob("first", "Frame Range"))
         self.addKnob(Int_Knob("last", ""))
@@ -454,7 +472,7 @@ class Read(Node):
 
 class Write(Node):
     def __init__(self):
-        super().__init__("Write")
+        super().__init__()
         self.addKnob(File_Knob("file", ""))
         kn = Enumeration_Knob("file_type", "file type")
         kn.setValues([" ", "cin", "dpx", "exr", "hdr", "jpeg", "mov\t\t\tffmpeg", "mxf", "null", "pic", "png", "sgi", "targa", "tiff", "xpm", "yuv"])
@@ -466,7 +484,7 @@ class Write(Node):
 
 class Copy(Node):
     def __init__(self):
-        super().__init__("Copy")
+        super().__init__()
         for i in range(4):
             self.addKnob(Channel_Knob(f"from{i}", "Copy channel"))
             self.addKnob(Channel_Knob(f"to{i}", ""))
@@ -475,37 +493,37 @@ class Copy(Node):
 
 class Unpremult(Node):
     def __init__(self):
-        super().__init__("Copy")
+        super().__init__()
         self.addKnob(ChannelMask_Knob("channels", "divide"))
         self.addKnob(Channel_Knob("alpha", "by"))
         self.addKnob(Boolean_Knob("invert", ""))
 
 class Shuffle2(Node):
     def __init__(self):
-        super().__init__("Shuffle2")
+        super().__init__()
         self.addKnob(Channel_Knob("in1", ""))
 
 class Remove(Node):
     def __init__(self):
-        super().__init__("Remove")
+        super().__init__()
         self.addKnob(Enumeration_Knob("operation", ""))
         self.addKnob(ChannelMask_Knob("channels", ""))
 
 class Merge2(Node):
     def __init__(self):
-        super().__init__("Merge2")
+        super().__init__()
         self.addKnob(Enumeration_Knob("operation", ""))
         self.addKnob(Channel_Knob("output", ""))
 
 class MergeExpression(Node):
     def __init__(self):
-        super().__init__("MergeExpression")
+        super().__init__()
         for i in range(4):
             self.addKnob(EvalString_Knob(f"expr{i}", "="))
 
 class Reformat(Node):
     def __init__(self):
-        super().__init__("Reformat")
+        super().__init__()
         type_kn = Enumeration_Knob("type", "")
         type_kn.setValues(["to format", "to box", "scale"])
         self.addKnob(type_kn)
@@ -519,19 +537,19 @@ class Reformat(Node):
 
 class TimeClip(Node):
     def __init__(self):
-        super().__init__("TimeClip")
+        super().__init__()
         self.addKnob(Int_Knob("first", "frame range"))
         self.addKnob(Int_Knob("last", ""))
 
 class FrameRange(Node):
     def __init__(self):
-        super().__init__("FrameRange")
+        super().__init__()
         self.addKnob(Array_Knob("first_frame", "frame range"))
         self.addKnob(Array_Knob("last_frame", ""))
 
 class AppendClip(Node):
     def __init__(self):
-        super().__init__("AppendClip")
+        super().__init__()
         self.addKnob(Array_Knob("firstFrame", "First Frame"))
         self.addKnob(Array_Knob("lastFrame", "Last Frame"))
 
@@ -558,18 +576,18 @@ def createNode(nodeClass: str, inpanel: bool = True) -> Node:
 
     if nodeClass in node_types:
         node = node_types[nodeClass]()
-        _all_nodes.setdefault(nodeClass, []).append(node)
+        root()._nodes.append(node)
         return node
     
     return Node(nodeClass)
 
-def root():
+def root() -> Root:
     return _root
 
 def allNodes(filter=None):
     if filter:
-        return _all_nodes.get(filter, [])
-    return [i for lst in _all_nodes.values() for i in lst]
+        return [n for n in root().nodes() if n.Class() == filter]
+    return root().nodes()
 
 def toNode(s: str) -> Node:
     """Search for a node in the DAG by name and return it as a Python object."""
