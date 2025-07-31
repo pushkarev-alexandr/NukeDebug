@@ -344,6 +344,8 @@ class Node:
         self._screenHeight = 18
         self._channels = []
         self.setName(self.__class__.__name__)
+
+        self._inputs = {}
     
     def __getitem__(self, key):
         return self._data[key]
@@ -375,10 +377,13 @@ class Node:
         # TODO Сделать чтобы нода спрашивала у нод сверху какие каналы есть
         return self._channels
 
-    def setInput(self, i, node):
+    def setInput(self, i: int, node) -> bool:
         """Connect input i to node if canSetInput() returns true."""
-        # TODO
-        pass
+        self._inputs[i] = node
+        return True
+
+    def input(self, i: int):
+        return self._inputs.get(i)
 
     def isSelected(self) -> bool:
         """Returns the current selection state of the node. This is the same as checking the 'selected' knob."""
@@ -448,7 +453,7 @@ class Root(Group):
         return val if val else "Root"
     
     def setName(self, name):
-        self._data["name"].setValue(__file__)
+        self._data["name"].setValue(name.replace("\\", "/"))
 
 class Dot(Node):
     def __init__(self):
@@ -553,8 +558,17 @@ class AppendClip(Node):
         self.addKnob(Array_Knob("firstFrame", "First Frame"))
         self.addKnob(Array_Knob("lastFrame", "Last Frame"))
 
-_root = Root()
-_menus = {'Nuke': Menu(), 'Nodes': Menu()}
+class Viewer(Node):
+    def __init__(self):
+        super().__init__()
+        self.addKnob(Enumeration_Knob("viewerProcess", "view transform", ["sRGB (ACES)", "DCDM (ACES)", "DCDM P3D60 Limited (ACES)", "DCDM P3D65 Limited (ACES)", "P3-D60 (ACES)", "P3-D65 ST2084 1000 nits (ACES)", "P3-D65 ST2084 2000 nits (ACES)", "P3-D65 ST2084 4000 nits (ACES)", "P3-DCI D60 simulation (ACES)", "P3-DCI D65 simulation (ACES)", "P3D65 (ACES)", "P3D65 D60 simulation (ACES)", "P3D65 Rec.709 Limited (ACES)", "P3D65 ST2084 108 nits (ACES)", "Rec.2020 (ACES)", "Rec.2020 P3D65 Limited (ACES)", "Rec.2020 Rec.709 Limited (ACES)", "Rec.2020 HLG 1000 nits (ACES)", "Rec.2020 ST2084 1000 nits (ACES)", "Rec.2020 ST2084 2000 nits (ACES)", "Rec.2020 ST2084 4000 nits (ACES)", "Rec.709 (ACES)", "Rec.709 D60 sim. (ACES)", "sRGB D60 sim. (ACES)", "Raw (ACES)", "Log (ACES)"]))
+    
+    def setInput(self, i, node):
+        res = super().setInput(i, node)
+        for v in _viewerWindows:
+            if v._node == self:
+                v._active_input = i
+        return res
 
 def createNode(nodeClass: str, inpanel: bool = True) -> Node:
     node_types = {
@@ -571,18 +585,26 @@ def createNode(nodeClass: str, inpanel: bool = True) -> Node:
         "TimeClip": TimeClip,
         "FrameRange": FrameRange,
         "AppendClip": AppendClip,
-        "Write": Write
+        "Write": Write,
+        "Viewer": Viewer
     }
 
     if nodeClass in node_types:
         node = node_types[nodeClass]()
         root()._nodes.append(node)
+        if nodeClass == "Viewer":
+            for v in _viewerWindows:
+                v._active = False
+            _viewerWindows.append(ViewerWindow(node))
         return node
     
-    return Node(nodeClass)
+    return Node()
 
 def root() -> Root:
     return _root
+
+def script_directory() -> str:
+    return os.path.dirname(root().name()) if root().name() != "Root" else ""
 
 def allNodes(filter=None):
     if filter:
@@ -626,7 +648,7 @@ def getFileNameList(dir, splitSequences= False, extraInformation= False, returnD
     return result
 
 def getFilename(message, pattern=None, default=None, favorites=None, type=None, multiple=False):
-    return input("Enter path: ").replace('\\', '/').strip('"')
+    return input("Enter path: ").replace("\\", "/").strip('"')
 
 def menu(name: str):
     return _menus.get(name)
@@ -663,3 +685,54 @@ def pluginPath() -> List[str]:
     """List all the directories Nuke will search in for plugins.
     The built-in default is `~/.nuke` and the 'plugins' directory from the same location the NUKE executable file is in. Setting the environment variable `$NUKE_PATH` to a colon-separated list of directories will replace the `~/.nuke` with your own set of directories, but the plugins directory is always on the end."""
     return _pluginPath
+
+def scriptSave(filename: str = None) -> bool:
+    """
+    Saves the current script to the current file name. If there is no current file name and Nuke is running in GUI mode, the user is asked for a name using the file chooser.
+    Args:
+        filename (str): Save to this file name without changing the script name in the project (use scriptSaveAs() if you want it to change).
+    Returns:
+            bool: True if the file was saved, otherwise an exception is thrown.
+    """
+    pass
+
+def scriptSaveAs(filename: str = None, overwrite: int = -1) -> None:
+    """
+    Saves the current script with the given file name if supplied, or (in GUI mode) asks the user for one using the file chooser. If Nuke is not running in GUI mode, you must supply a filename.
+    Args:
+        filename (str): Saves the current script with the given file name if supplied, or (in GUI mode) asks the user for one using the file chooser.
+        overwrite (int): If 1 (true) always overwrite; if 0 (false) never overwrite; otherwise, in GUI mode ask the user, in terminal do same as False. Default is -1, meaning 'ask the user'.    
+    """
+    root().setName(filename)
+
+class ViewerWindow:
+    def __init__(self, node: Viewer):
+        self._active = True
+        self._active_input = None
+        self._node = node
+
+    def activeInput(self, secondary: bool = False) -> Union[int, None]:
+        """
+        Returns the currently active input of the viewer - i. e. the one with its image in the output window.
+        Args:
+            secondary (bool):  True to return the index of the active secondary (wipe) input, or False (the default) to return the primary input.
+        Returns:
+            int: The currently active input of the viewer, starting with 0 for the first, or None if no input is active.
+        """
+        return self._active_input
+
+    def node(self) -> Viewer:
+        """Returns the Viewer node currently associated with this window."""
+        return self._node
+
+def activeViewer() -> Union[ViewerWindow, None]:
+    """Return an object representing the active Viewer panel. This is not the same as the Viewer node, this is the viewer UI element."""
+    for viewer in _viewerWindows:
+        if viewer._active:
+            return viewer
+    return None
+
+_root = Root()
+_menus = {'Nuke': Menu(), 'Nodes': Menu()}
+_viewerWindows: List[ViewerWindow] = []
+_viewerWindows.append(ViewerWindow(createNode("Viewer")))
