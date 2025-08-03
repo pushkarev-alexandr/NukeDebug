@@ -87,6 +87,10 @@ class Knob:
     def node(self):
         return self._node
 
+    def clearAnimated(self) -> bool:
+        """Clear animation for channel 'c'. Return True if successful."""
+        return True
+
     def clearFlag(self, f):
         self._flag = 0
 
@@ -601,15 +605,46 @@ def createNode(nodeClass: str, inpanel: bool = True) -> Node:
     return Node()
 
 def root() -> Root:
+    """
+    Get the DAG's root node. Always succeeds.
+    Returns:
+        Root: The root node. This will never be None.
+    """
     return _root
 
 def script_directory() -> str:
     return os.path.dirname(root().name()) if root().name() != "Root" else ""
 
-def allNodes(filter=None):
+def allNodes(filter: str = None, group = None, recurseGroups : bool = False) -> List[Node]:
+    """
+    List of all nodes in a group. If you need to get all the nodes in the script from a context which has no child nodes, for instance a control panel, use nuke.root().nodes().
+    Args:
+        filter (str): Optional. Only return nodes of the specified class.
+        group (): Optional. If the group is omitted the current group (ie the group the user picked a menu item from the toolbar of) is used.
+        recurseGroups (bool): Optional. If True, will also return all child nodes within any group nodes. This is done recursively and defaults to False.
+    """
     if filter:
         return [n for n in root().nodes() if n.Class() == filter]
     return root().nodes()
+
+def selectedNode() -> Node:
+    """Returns the 'node the user is thinking about'. If several nodes are selected, this returns one of them. The one returned will be an 'output' node in that no other selected nodes use that node as an input.
+    If no nodes are selected, then if the last thing typed was a hotkey this returns the node the cursor is pointing at. If none, or the last event was not a hotkey, this produces a 'No node selected' error."""
+    nodes = root().selectedNodes()
+    if nodes:
+        return nodes[0]
+    raise ValueError("no node selected")
+
+def selectedNodes(filter: str = None) -> List[Node]:
+    """
+    Returns a list of all selected nodes in the current group. An attempt is made to return them in 'useful' order where inputs are done before the final node, so commands applied to this list go from top-down.
+    Args:
+        filter (str): Optional class of Node. Instructs the algorithm to apply only to a specific class of nodes.
+    """
+    nodes = root().selectedNodes()
+    if filter:
+        return [n for n in nodes if n.Class() == filter]
+    return nodes
 
 def toNode(s: str) -> Node:
     """Search for a node in the DAG by name and return it as a Python object."""
@@ -705,6 +740,35 @@ def scriptSaveAs(filename: str = None, overwrite: int = -1) -> None:
     """
     root().setName(filename)
 
+def thisClass() -> str:
+    """Get the class name of the current node. This equivalent to calling nuke.thisNode().Class(), only faster."""
+    return root().Class()
+
+def thisGroup() -> Group:
+    """Returns the current context Group node."""
+    return root()
+
+def thisKnob() -> Knob:
+    """Returns the current context knob if any."""
+    return None
+
+def thisNode() -> Node:
+    """Return the current context node."""
+    return root()
+
+def thisPane():
+    """Returns the active pane. This is only valid during a pane menu callback or window layout restoration."""
+    # TODO
+    return None
+
+def thisParent() -> Node:
+    """Returns the current context Node parent."""
+    return None
+
+def thisView() -> str:
+    """Get the name of the current view."""
+    return "main"
+
 class ViewerWindow:
     def __init__(self, node: Viewer):
         self._active = True
@@ -731,6 +795,182 @@ def activeViewer() -> Union[ViewerWindow, None]:
         if viewer._active:
             return viewer
     return None
+
+class AnimationKey:
+    """
+    Attributes:
+        extrapolation (int): Controls how to set the left slope of the first point and the right slope of the last point
+        interpolation (int): Used to calculate all the slopes except for the left slope of the first key and the right slope of the last key
+        la (float): The left 'bicubic' value
+        lslope (float): The derivative to the left of the point
+        ra (float): The right 'bicubic' value
+        rslope (float): The derivative to the right of the point
+        selected (bool): True if the point is selected in the curve editor
+        x (float): The horizontal position of the point
+        y (float): The vertical position of the point
+    """
+    def __init__(self, x: float, y: float):
+        self.extrapolation: int = 1
+        self.interpolation: int = 0
+        self.la: float = 0.0
+        self.lslope: float = 0.0 
+        self.ra: float = 0.0
+        self.rslope: float = 0.0
+        self.selected: bool = False
+        self.x: float = x
+        self.y: float = y
+
+class AnimationCurve:
+    def __init__(self):
+        pass
+
+    def addKey(self, keys: List[AnimationKey]) -> None:
+        """
+        Insert a sequence of keys.
+        Args:
+            keys (List[AnimationKey]): Sequence of AnimationKey.
+        """
+        pass
+
+    def changeInterpolation(self, keys, type) -> None:
+        """
+        Change interpolation (and extrapolation) type for the keys.
+        Args:
+            keys: Sequence of keys.
+            type: Interpolation type. One of nuke.HORIZONTAL, nuke.BREAK, nuke.BEFORE_CONST, nuke.BEFORE_LINEAR, nuke.AFTER_CONST or nuke.AFTER_LINEAR.
+        """
+        pass
+
+    def clear(self) -> None:
+        """Delete all keys."""
+        pass
+
+    def constant(self) -> bool:
+        """
+        Returns:
+            bool: True if the animation appears to be a horizontal line, is a simple number, or it is the default and all the points are at the same y value and have 0 slopes. False otherwise.
+        """
+        pass
+
+    def derivative(self, t: float, n=1) -> float:
+        """
+        The n'th derivative at time 't'. If n is less than 1 it returns evaluate(t).
+        Args:
+            t (float): Time.
+            n (int): Optional. Default is 1.
+        Returns:
+            float: The value of the derivative.
+        """
+        pass
+
+    def evaluate(self, t: float) -> float:
+        """
+        Value at time 't'.
+        Args:
+            t (float): Time.
+        Returns:
+            float: The value of the animation at time 't'.
+        """
+        pass
+
+    def fixSlopes(self) -> None:
+        pass
+
+    def fromScript(self, s: str) -> None:
+        pass
+
+    def identity(self) -> bool:
+        """
+        Returns:
+            bool: True if the animation appears to be such that y == x everywhere. This is True only for an expression of 'x' or the default expression and all points having y == x and slope == 1. Extrapolation is ignored.
+        """
+        pass
+
+    def integrate(self, t1, t2) -> float:
+        """
+        Calculate the area underneath the curve from t1 to t2. @param t1 The start of the integration range. @param t2 The end of the integration range.
+        Returns:
+            float: The result of the integration.
+        """
+        pass
+
+    def inverse(self, y) -> float:
+        """
+        The inverse function at value y. This is the value of x such that evaluate(x) returns y. This is designed to invert color lookup tables. It only works if the derivative is zero or positive everywhere.
+        Args:
+            y: The value of the function to get the inverse for.
+        """
+        pass
+
+    def keys(self) -> List[AnimationKey]:
+        """List of keys."""
+        pass
+
+    def knobAndFieldName(self) -> str:
+        """Knob and field name combined (e.g. 'translate.x')."""
+        pass
+
+    def noExpression(self) -> bool:
+        """
+        Returns:
+            bool: True if the expression is the default expression (i.e. the keys control the curve), False otherwise.
+        """
+        pass
+    
+    def removeKey(self, keys) -> None:
+        """
+        Remove some keys from the curve.
+        Args:
+            keys: The sequence of keys to be removed.
+        """
+        pass
+    
+    def selected(self) -> bool:
+        """
+        Returns:
+            bool: True if selected, False otherwise.
+        """
+        pass
+    
+    def setExpression(self, s: str) -> None:
+        """
+        Set expression.
+        Args:
+            s (str): A string containing the expression.
+        """
+        pass
+    
+    def setKey(self, t: float, y: float) -> AnimationKey:
+        """
+        Set a key at time t and value y. If there is no key there one is created. If there is a key there it is moved vertically to be at y.
+        If a new key is inserted the interpolation and extrapolation are copied from a neighboring key, if there were no keys then it is set to nuke.SMOOTH interpolation and nuke.CONSTANT extrapolation.
+        Args:
+            t (float): The time to set the key at.
+            y (float): The value for the key.
+        Returns:
+            AnimationKey: The new key.
+        """
+        pass
+    
+    def size(self) -> int:
+        """
+        Returns:
+            int: Number of keys.
+        """
+        pass
+
+    def toScript(self, selected: bool) -> str:
+        """
+        Args:
+            selected (bool): Optional parameter. If this is given and is True, then only process the selected curves; otherwise convert all.
+        Returns:
+            str: A string containing the curves.
+        """
+        pass
+
+    def view(self) -> str:
+        """The view this AnimationCurve object is associated with."""
+        return "main"
 
 _root = Root()
 _menus = {'Nuke': Menu(), 'Nodes': Menu()}
