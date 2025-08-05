@@ -721,6 +721,24 @@ def pluginPath() -> List[str]:
     The built-in default is `~/.nuke` and the 'plugins' directory from the same location the NUKE executable file is in. Setting the environment variable `$NUKE_PATH` to a colon-separated list of directories will replace the `~/.nuke` with your own set of directories, but the plugins directory is always on the end."""
     return _pluginPath
 
+def scriptNew():
+    """Start a new script. Returns True if successful."""
+    return True
+
+def scriptOpen(file: str):
+    """Opens a new script containing the contents of the named file."""
+    root().setName(file)
+    for callback_info in _onScriptLoadCallbacks:
+        callback_info["call"](*callback_info["args"], **callback_info["kwargs"])
+
+def scriptReadFile(file: str):
+    """Read nodes from a file."""
+    pass
+
+def scriptReadText(s: str):
+    """Read nodes from a string."""
+    pass
+
 def scriptSave(filename: str = None) -> bool:
     """
     Saves the current script to the current file name. If there is no current file name and Nuke is running in GUI mode, the user is asked for a name using the file chooser.
@@ -739,6 +757,30 @@ def scriptSaveAs(filename: str = None, overwrite: int = -1) -> None:
         overwrite (int): If 1 (true) always overwrite; if 0 (false) never overwrite; otherwise, in GUI mode ask the user, in terminal do same as False. Default is -1, meaning 'ask the user'.    
     """
     root().setName(filename)
+
+def addOnCreate(call, args=(), kwargs={}, nodeClass="*"):
+    """Add code to execute when a node is created or undeleted"""
+    pass
+
+def addOnDestroy(call, args=(), kwargs={}, nodeClass="*"):
+    """Add code to execute when a node is destroyed"""
+    pass
+
+def addOnScriptClose(call, args=(), kwargs={}, nodeClass="Root"):
+    """Add code to execute before a script is closed"""
+    pass
+
+def addOnScriptLoad(call, args=(), kwargs={}, nodeClass="Root"):
+    """Add code to execute when a script is loaded"""
+    _onScriptLoadCallbacks.append({"call": call, "args": args, "kwargs": kwargs})
+
+def addOnScriptSave(call, args=(), kwargs={}, nodeClass="Root"):
+    """Add code to execute before a script is saved"""
+    pass
+
+def addOnUserCreate(call, args=(), kwargs={}, nodeClass="*"):
+    """Add code to execute when user creates a node"""
+    pass
 
 def thisClass() -> str:
     """Get the class name of the current node. This equivalent to calling nuke.thisNode().Class(), only faster."""
@@ -973,6 +1015,7 @@ class AnimationCurve:
         return "main"
 
 _root = Root()
-_menus = {'Nuke': Menu(), 'Nodes': Menu()}
+_menus = {"Nuke": Menu(), "Nodes": Menu()}
 _viewerWindows: List[ViewerWindow] = []
 _viewerWindows.append(ViewerWindow(createNode("Viewer")))
+_onScriptLoadCallbacks = []
