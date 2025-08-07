@@ -1,4 +1,4 @@
-from typing import Union, List, Callable
+from typing import overload, Any, Union, List, Dict, Callable, Literal, Type
 import os, re, sys
 
 from PySide6.QtWidgets import QApplication, QLineEdit, QCheckBox, QComboBox, QPlainTextEdit, QLabel, QWidget, QWidgetItem, QPushButton
@@ -349,9 +349,13 @@ class Node:
         self._channels = []
         self.setName(self.__class__.__name__)
 
-        self._inputs = {}
-    
-    def __getitem__(self, key):
+        self._inputs: Dict[Node] = {}
+        self._metadata = {}
+
+    @overload
+    def __getitem__(self, key: Literal["name"]) -> String_Knob: ...
+
+    def __getitem__(self, key: str) -> Any:
         return self._data[key]
 
     def Class(self):
@@ -381,12 +385,27 @@ class Node:
         # TODO Сделать чтобы нода спрашивала у нод сверху какие каналы есть
         return self._channels
 
-    def setInput(self, i: int, node) -> bool:
+    def metadata(self, key: str=None, time: float=1001, view=None) -> Union[dict, str, None]:
+        """
+        Return the metadata item for key on this node at current output context, or at optional time and view.
+        If key is not specified a dictionary containing all key/value pairs is returned. None is returned if key does not exist on this node.
+        Args:
+            key (str): Optional name of the metadata key to retrieve.
+            time (str): Optional time to evaluate at (default is taken from node's current output context).
+            view: Optional view to evaluate at (default is taken from node's current output context).
+        Returns:
+            Union[dict, str, None]: The requested metadata value, a dictionary containing all keys if a key name is not provided, or None if the specified key is not matched.
+        """
+        if key is None:
+            return self._metadata
+        return self._metadata.get(key)
+
+    def setInput(self, i: int, node: Type["Node"]) -> bool:
         """Connect input i to node if canSetInput() returns true."""
         self._inputs[i] = node
         return True
 
-    def input(self, i: int):
+    def input(self, i: int) -> Union[Type["Node"], None]:
         return self._inputs.get(i)
 
     def isSelected(self) -> bool:
@@ -653,7 +672,17 @@ def toNode(s: str) -> Node:
             return node
     return None
 
-def getFileNameList(dir, splitSequences= False, extraInformation= False, returnDirs=True, returnHidden=False):
+def getFileNameList(dir: str, splitSequences: bool = False, extraInformation: bool = False, returnDirs: bool = True, returnHidden: bool = False) -> List[str]:
+    """
+    Args:
+        dir (str): The directory to get sequences from.
+        splitSequences (bool): Whether to split sequences or not.
+        extraInformation (bool): Whether or not there should be extra sequence information on the sequence name.
+        returnDirs (bool): Whether to return a list of directories as well as sequences.
+        returnHidden (bool): Whether to return hidden files and directories.
+    Returns:
+        List[str]: Retrieves the filename list.
+    """
     if not os.path.isdir(dir):
         return []
 
@@ -682,7 +711,19 @@ def getFileNameList(dir, splitSequences= False, extraInformation= False, returnD
     result.extend(singles)
     return result
 
-def getFilename(message, pattern=None, default=None, favorites=None, type=None, multiple=False):
+def getFilename(message: str, pattern: str = None, default: str = None, favorites: str = None, type: str = None, multiple: bool = False) -> Union[List[str], str, None]:
+    """
+    Pops up a file chooser dialog box. You can use the pattern to restrict the displayed choices to matching filenames, normal Unix glob rules are used here.
+    Args:
+        message (str): Present the user with this message.
+        pattern (str): Optional file selection pattern.
+        default (str): Optional default filename and path.
+        favorites (str): Optional. Restrict favorites to this set. Must be one of 'image', 'script', or 'font'.
+        type (str): Optional the type of browser, to define task-specific behaviors; currently only 'save' is recognised.
+        multiple (bool): Optional boolean convertible object to allow for multiple selection. If this is True, the return value will be a list of strings; if not, it will be a single string. The default is False.
+    Returns:
+        Union[List[str], str, None]: If multiple is True, the user input is returned as a list of strings, otherwise as a single string. If the dialog was cancelled, the return value will be None.
+    """
     return input("Enter path: ").replace("\\", "/").strip('"')
 
 def menu(name: str):
