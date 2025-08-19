@@ -6,6 +6,15 @@ from PySide6.QtGui import QIntValidator
 
 STARTLINE = 1
 
+NUKE_VERSION_MAJOR = 15
+NUKE_VERSION_MINOR = 1
+NUKE_VERSION_RELEASE = 5
+NUKE_VERSION_STRING = f"{NUKE_VERSION_MAJOR}.{NUKE_VERSION_MINOR}v{NUKE_VERSION_RELEASE}"
+NUKE_VERSION_PHASE = ""
+NUKE_VERSION_PHASENUMBER = 258239
+
+GUI = 0
+
 app = QApplication(sys.argv)
 
 _pluginPath: List[str] = [os.path.expanduser("~/.nuke").replace("\\", "/")]
@@ -36,26 +45,58 @@ class Menu(MenuItem):
         pass
 
 class Format:
-    def __init__(self, name, width, height, pixelAspect=1.0):  # TODO takes at least 6 arguments
-        self._name = name
-        self._width = width
-        self._height = height
-        self._pixelAspect = pixelAspect
+    def __init__(self, width: int, height: int, x: int, y: int, r: int, t: int, pixelAspect: float = 1.0):
+        self._name: str = ""
+        for i in [width, height, x, y, r, t]:
+            if not isinstance(i, int):
+                raise TypeError(f"'{type(i).__name__}' object cannot be interpreted as an integer")
+        self._width: int = width
+        self._height: int = height
+        self._x: int = x
+        self._y: int = y
+        self._r: int = r
+        self._t: int = t
+        self._pixelAspect: float = pixelAspect
 
-    def name(self):
-        return self._name
+    def add(self, name) -> None:
+        """Add this instance to a list of 'named' formats."""
+        pass
 
-    def width(self):
-        return self._width
-    
-    def height(self):
+    def height(self) -> int:
+        """Return the height of image file in pixels."""
         return self._height
     
-    def pixelAspect(self):
-        return self._pixelAspect
+    def name(self) -> str:
+        """Returns the user-visible name of the format."""
+        return self._name
     
-    def setName(self, name):
+    def pixelAspect(self) -> float:
+        """Returns the pixel aspect ratio (pixel width divided by pixel height) for this format."""
+        return self._pixelAspect
+
+    def r(self) -> int:
+        """Return the right edge of image file in pixels."""
+        return self._r
+    
+    def setName(self, name) -> None:
+        """Set name of this format. The name parameter is the new name for the format."""
         self._name = name
+    
+    def width(self) -> int:
+        """Return the width of image file in pixels."""
+        return self._width
+
+    def t(self) -> int:
+        """Return the top edge of image file in pixels."""
+        return self._t
+
+    def x(self) -> int:
+        """Return the left edge of image file in pixels."""
+        return self._x
+    
+    def y(self) -> int:
+        """Return the bottom edge of image file in pixels."""
+        return self._y
 
 class Knob:
     def __init__(self, name, label=None):
@@ -125,6 +166,11 @@ class Knob:
 
     def _setPanel(self, panel):
         self._panel = panel
+
+class Format_Knob(Knob):
+    def __init__(self, name, label=None):
+        super().__init__(name, label)
+        self._value: Format = None
 
 class Array_Knob(Knob):
     def __init__(self, name, label=None):
@@ -354,12 +400,22 @@ class Node:
 
     @overload
     def __getitem__(self, key: Literal["name"]) -> String_Knob: ...
+    
+    @overload
+    def __getitem__(self, key: Literal["file"]) -> File_Knob: ...
+
+    @overload
+    def __getitem__(self, key: Literal["also_merge"]) -> ChannelMask_Knob: ...
 
     def __getitem__(self, key: str) -> Any:
         return self._data[key]
 
     def Class(self):
         return self.__class__.__name__
+
+    def autoplace(self) -> None:
+        """Automatically place nodes, so they do not overlap."""
+        pass
 
     def knob(self, name):
         return self._data.get(name)
@@ -468,8 +524,27 @@ class Root(Group):
         kn.setValues(["Nuke", "OCIO"])
         self.addKnob(kn)
         kn = Enumeration_Knob("OCIO_config", "OCIO config")
-        kn.setValues(['aces_1.2\tACES/aces_1.2\t\t', 'fn-nuke_cg-config-v1.0.0_aces-v1.3_ocio-v2.1\tACES/fn-nuke_cg-config-v1.0.0_aces-v1.3_ocio-v2.1\t\tcg-config-v1.0.0_aces-v1.3_ocio-v2.1', 'fn-nuke_studio-config-v1.0.0_aces-v1.3_ocio-v2.1\tACES/fn-nuke_studio-config-v1.0.0_aces-v1.3_ocio-v2.1\t\tstudio-config-v1.0.0_aces-v1.3_ocio-v2.1', 'nuke-default', 'custom'])
+        kn.setValues(["aces_1.2\tACES/aces_1.2\t\t", "fn-nuke_cg-config-v1.0.0_aces-v1.3_ocio-v2.1\tACES/fn-nuke_cg-config-v1.0.0_aces-v1.3_ocio-v2.1\t\tcg-config-v1.0.0_aces-v1.3_ocio-v2.1", "fn-nuke_studio-config-v1.0.0_aces-v1.3_ocio-v2.1\tACES/fn-nuke_studio-config-v1.0.0_aces-v1.3_ocio-v2.1\t\tstudio-config-v1.0.0_aces-v1.3_ocio-v2.1", "nuke-default", "custom"])
         self.addKnob(kn)
+        kn = Array_Knob("fps")
+        kn.setValue(24)
+        self.addKnob(kn)
+        kn = Enumeration_Knob("proxy_type", "")
+        kn.setValues(["format", "scale"])
+        kn.setValue("scale")
+        self.addKnob(kn)
+        kn = Format_Knob("format", "full size format")
+        format = Format(1920, 1080, 0, 0, 1920, 1080)
+        format.setName("HD_1080")
+        kn.setValue(format)
+        self.addKnob(kn)
+        kn = Array_Knob("first_frame", "frame range")
+        kn.setValue(1)
+        self.addKnob(kn)
+        kn = Array_Knob("last_frame", "")
+        kn.setValue(100)
+        self.addKnob(kn)
+        self.addKnob(Boolean_Knob("lock_range"))
 
     def name(self):
         val = self._data["name"].value()
@@ -542,6 +617,7 @@ class Merge2(Node):
         super().__init__()
         self.addKnob(Enumeration_Knob("operation", ""))
         self.addKnob(Channel_Knob("output", ""))
+        self.addKnob(ChannelMask_Knob("also_merge", "also merge"))
 
 class MergeExpression(Node):
     def __init__(self):
@@ -725,6 +801,38 @@ def getFilename(message: str, pattern: str = None, default: str = None, favorite
         Union[List[str], str, None]: If multiple is True, the user input is returned as a list of strings, otherwise as a single string. If the dialog was cancelled, the return value will be None.
     """
     return input("Enter path: ").replace("\\", "/").strip('"')
+
+def addFormat(s: str) -> Union[Format, None]:
+    """
+    Create a new image format, which will show up on the pull-down menus for image formats. You must give a width and height and name.
+    The xyrt rectangle describes the image area, if it is smaller than the width and height (for Academy aperture, for example).
+    The pixel aspect is the ratio of the width of a pixel to the height.
+    Args:
+        s (str): String in TCL format `w h ?x y r t? ?pa? name`.
+    """
+    spl = s.split()
+    if len(spl) > 1:
+        width = int(spl[0])
+        height = int(spl[1])
+        format = Format(width, height, 0, 0, width, height)
+        if len(spl) == 3:
+            try:
+                pa = float(spl[2])
+                format.setPixelAspect(pa)
+            except ValueError:
+                format.setName(spl[2])
+        elif len(spl) == 4:
+            format.setPixelAspect(spl[2])
+            format.setName(spl[3])
+        return format
+    return None
+
+def formats() -> list:
+    """
+    Returns:
+        list: List of all available formats.
+    """
+    return [root()["format"].value()]
 
 def menu(name: str):
     return _menus.get(name)
