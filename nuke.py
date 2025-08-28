@@ -618,6 +618,9 @@ class Merge2(Node):
         self.addKnob(Enumeration_Knob("operation", ""))
         self.addKnob(Channel_Knob("output", ""))
         self.addKnob(ChannelMask_Knob("also_merge", "also merge"))
+        kn = Enumeration_Knob("bbox", "set bbox to ")
+        kn.setValues(["union", "intersection", "A", "B"])
+        self.addKnob(Enumeration_Knob("bbox", "set bbox to "))
 
 class MergeExpression(Node):
     def __init__(self):
@@ -842,6 +845,10 @@ def message(prompt):
 
 def execute(nameOrNode, start, end, incr, views, continueOnError=False):
     pass
+
+def delete(n: Node) -> None:
+    """The named node is deleted. It can be recovered with an undo."""
+    root()._nodes.remove(n)
 
 def ask(prompt: str) -> bool:
     return input(prompt).lower() in ['yes', 'y'] 
