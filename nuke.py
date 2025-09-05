@@ -15,6 +15,10 @@ NUKE_VERSION_PHASENUMBER = 258239
 
 GUI = 0
 
+EXPRESSIONS = 1
+INPUTS = 2
+HIDDEN_INPUTS = 4
+
 app = QApplication(sys.argv)
 
 _pluginPath: List[str] = [os.path.expanduser("~/.nuke").replace("\\", "/")]
@@ -321,6 +325,10 @@ class File_Knob(EvalString_Knob):
             if os.path.isfile(file_path):
                 self.node()._channels = get_exr_channels(file_path)
 
+    def getEvaluatedValue(self, oc = None) -> str:
+        """Returns the string on this knob, will be normalized to technical notation if sequence (%4d). Will also evaluate the string for any tcl expressions"""
+        return self.value()
+
 class Unsigned_Knob(Array_Knob):
     def __init__(self, name, label=None):
         super().__init__(name, label)
@@ -462,17 +470,26 @@ class Node:
         return True
 
     def input(self, i: int) -> Union[Type["Node"], None]:
+        """Returns the i'th input"""
         return self._inputs.get(i)
+
+    def inputs(self) -> int:
+        """Gets the maximum number of connected inputs. Number of the highest connected input + 1. If inputs 0, 1, and 3 are connected, this will return 4."""
+        return len(self._inputs)
 
     def isSelected(self) -> bool:
         """Returns the current selection state of the node. This is the same as checking the 'selected' knob."""
         return self._data["selected"].value()
 
-    def setSelected(self, selected):
-        """Set the selection state of the node. This is the same as changing the 'selected' knob."""
+    def setSelected(self, selected: bool) -> None:
+        """
+        Set the selection state of the node. This is the same as changing the 'selected' knob.
+        Args:
+            selected (bool): New selection state - True or False.
+        """
         self._data["selected"].setValue(selected)
 
-    def setXYpos(self, x, y):
+    def setXYpos(self, x: int, y: int) -> None:
         """Set the (x, y) position of node in node graph."""
         self._data["xpos"].setValue(x)
         self._data["ypos"].setValue(y)
@@ -498,6 +515,43 @@ class Node:
     def screenHeight(self) -> int:
         """Height of the node when displayed on screen in the DAG, at 1:1 zoom, in pixels."""
         return self._screenHeight
+
+    def dependencies(self, what: int) -> List[Type["Node"]]:
+        """
+        List all nodes referred to by this node. 'what' is an optional integer (see below).
+        You can use the following constants or'ed together to select what types of dependencies are looked for:
+                `nuke.EXPRESSIONS` = expressions
+                `nuke.INPUTS` = visible input pipes
+                `nuke.HIDDEN_INPUTS` = hidden input pipes.
+        The default is to look for all types of connections.
+        Args:
+            what (int): Or'ed constant of `nuke.EXPRESSIONS`, `nuke.INPUTS` and `nuke.HIDDEN_INPUTS` to select the types of dependencies. The default is to look for all types of connections.
+        Returns:
+            List[Node]: List of nodes.
+        Example:
+            >>> nuke.toNode('Blur1').dependencies( nuke.INPUTS | nuke.EXPRESSIONS )
+        """
+        return []
+    
+    def dependent(self, what: int, forceEvaluate: bool = True) -> List[Type["Node"]]:
+        """
+        List all nodes that read information from this node. 'what' is an optional integer:
+                You can use any combination of the following constants or'ed together to select what types of dependent nodes to look for:
+                        `nuke.EXPRESSIONS` = expressions
+                        `nuke.INPUTS` = visible input pipes
+                        `nuke.HIDDEN_INPUTS` = hidden input pipes.
+        The default is to look for all types of connections.
+        `forceEvaluate` is an optional boolean defaulting to True. When this parameter is true, it forces a re-evaluation of the entire tree. 
+        This can be expensive, but otherwise could give incorrect results if nodes are expression-linked. 
+        Args:
+            what (int): Or'ed constant of `nuke.EXPRESSIONS`, `nuke.INPUTS` and `nuke.HIDDEN_INPUTS` to select the types of dependent nodes. The default is to look for all types of connections.
+            forceEvaluate (bool): Specifies whether a full tree evaluation will take place. Defaults to True.
+        Returns:
+            List[Node]: List of nodes.
+        Example:
+            >>> nuke.toNode('Blur1').dependent( nuke.INPUTS | nuke.EXPRESSIONS )
+        """
+        return []
 
 class Group(Node):
     def __init__(self):
@@ -840,8 +894,24 @@ def formats() -> list:
 def menu(name: str):
     return _menus.get(name)
 
-def message(prompt):
+def message(prompt: str) -> None:
+    """
+    Show an info dialog box. Pops up an info box (with a 'i' and the text message) and waits for the user to hit the OK button.
+    Args:
+        prompt (str): Present user with this message.
+    """
     print(prompt)
+
+def getInput(prompt: str, default: str = "") -> str:
+    """
+    Pops up a dialog box with a text field for an arbitrary string.
+    Args:
+        prompt (str): Present the user with this message.
+        default (str): Optional. Default value for the input text field.
+    Returns:
+        str: String from text field or None if dialog is cancelled.
+    """
+    return input(prompt)
 
 def execute(nameOrNode, start, end, incr, views, continueOnError=False):
     pass
