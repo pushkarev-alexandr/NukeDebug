@@ -48,6 +48,56 @@ class Menu(MenuItem):
         """
         pass
 
+    def addMenu(self, **kwargs) -> "Menu":
+        """
+        Add a new submenu.
+        Args:
+            **kwargs: The, following, keyword, arguments, are, accepted - `name` The name for the menu/toolbar item `icon` An icon for the menu. Loaded from the nuke search path.
+                      `tooltip` The tooltip text. `index` The position to insert the menu in. Use -1 to add to the end of the menu.
+        Returns:
+            Menu: The submenu that was added.
+        """
+        pass
+    
+    def addSeparator(self, **kwargs) -> MenuItem:
+        """
+        Add a separator to this menu/toolbar.
+        Args:
+            **kwargs: The, following, keyword, arguments, are, accepted - `index` The position to insert the new separator in, in the menu/toolbar.
+        Returns:
+            MenuItem: The separator that was created.
+        """
+        pass
+
+    def clearMenu(self, **kwargs) -> bool:
+        """
+        Clears a menu.
+        Args:
+            **kwargs: The, following, keyword, arguments, are, accepted - `name` The name for the menu/toolbar item
+        Returns:
+            bool: true if cleared, false if menu not found
+        """
+        pass
+    
+    def findItem(self, name: str) -> "Menu":
+        """
+        Finds a submenu or command with a particular name.
+        Args:
+            name (str): The name to search for.
+        Returns:
+            Menu: The submenu or command we found, or None if we could not find anything.
+        """
+        pass
+
+    def menu(self, name: str) -> "Menu":
+        """
+        Finds a submenu or command with a particular name.
+        Args:
+            name (str): The name to search for.
+        Returns:
+            Menu: The submenu or command we found, or None if we could not find anything.
+        """
+
 class Format:
     def __init__(self, width: int, height: int, x: int, y: int, r: int, t: int, pixelAspect: float = 1.0):
         self._name: str = ""
