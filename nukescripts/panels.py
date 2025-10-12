@@ -1,6 +1,6 @@
 import nuke
 from typing import Dict
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QDialogButtonBox, QFormLayout
+from PySide2.QtWidgets import QDialog, QVBoxLayout, QDialogButtonBox, QFormLayout
 
 class PythonPanel(QDialog):
     def __init__(self, title="", id="", scrollable=True):

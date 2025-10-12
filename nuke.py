@@ -1,8 +1,8 @@
 from typing import overload, Any, Union, List, Dict, Callable, Literal, Type
 import os, re, sys
 
-from PySide6.QtWidgets import QApplication, QLineEdit, QCheckBox, QComboBox, QPlainTextEdit, QLabel, QWidget, QWidgetItem, QPushButton
-from PySide6.QtGui import QIntValidator
+from PySide2.QtWidgets import QApplication, QLineEdit, QCheckBox, QComboBox, QPlainTextEdit, QLabel, QWidget, QWidgetItem, QPushButton
+from PySide2.QtGui import QIntValidator
 
 STARTLINE = 1
 
@@ -709,6 +709,7 @@ class Shuffle2(Node):
     def __init__(self):
         super().__init__()
         self.addKnob(Channel_Knob("in1", ""))
+        self.addKnob(Channel_Knob("out1", ""))
 
 class Remove(Node):
     def __init__(self):
