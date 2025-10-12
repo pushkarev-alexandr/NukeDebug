@@ -1291,6 +1291,328 @@ class AnimationCurve:
         """The view this AnimationCurve object is associated with."""
         return "main"
 
+class Panel:
+    """
+    Panel class for creating custom dialog panels in Nuke.
+    
+    This class provides methods to add various UI controls (knobs) to a panel
+    and display them to the user. The panel can contain different types of
+    input controls like text fields, buttons, checkboxes, color choosers, etc.
+    """
+    
+    def __init__(self, title: str):
+        """
+        Initialize a new Panel.
+        
+        Args:
+            title: The title of the panel window
+        """
+        self._title = title
+        self._width = 300
+        self._knobs = {}
+        self._values = {}
+    
+    def __new__(cls, *args, **kwargs):
+        """
+        Create a new Panel instance.
+        
+        Returns:
+            A new Panel object
+        """
+        return super().__new__(cls)
+    
+    def addBooleanCheckBox(self, name: str, value: bool = False) -> bool:
+        """
+        Add a boolean check box knob to the panel.
+        
+        Args:
+            name: The name for the new knob
+            value: The initial value for the new knob
+            
+        Returns:
+            True if successful
+        """
+        self._knobs[name] = 'boolean_checkbox'
+        self._values[name] = value
+        return True
+    
+    def addButton(self, name: str, value: str = "") -> bool:
+        """
+        Add a button to the panel.
+        
+        Args:
+            name: The name for the new knob
+            value: The initial value for the new knob
+            
+        Returns:
+            True if successful
+        """
+        self._knobs[name] = 'button'
+        self._values[name] = value
+        return True
+    
+    def addClipnameSearch(self, name: str, value: str = "") -> bool:
+        """
+        Add a clipname search knob to the panel.
+        
+        Args:
+            name: The name for the new knob
+            value: The initial value for the new knob
+            
+        Returns:
+            True if successful
+        """
+        self._knobs[name] = 'clipname_search'
+        self._values[name] = value
+        return True
+    
+    def addEnumerationPulldown(self, name: str, value: str = "") -> bool:
+        """
+        Add a pulldown menu to the panel.
+        
+        Args:
+            name: The name for the new knob
+            value: The initial value for the new knob
+            
+        Returns:
+            True if successful
+        """
+        self._knobs[name] = 'enumeration_pulldown'
+        self._values[name] = value
+        return True
+    
+    def addExpressionInput(self, name: str, value: str = "") -> bool:
+        """
+        Add an expression evaluator to the panel.
+        
+        Args:
+            name: The name for the new knob
+            value: The initial value for the new knob
+            
+        Returns:
+            True if successful
+        """
+        self._knobs[name] = 'expression_input'
+        self._values[name] = value
+        return True
+    
+    def addFilenameSearch(self, name: str, value: str = "") -> bool:
+        """
+        Add a filename search knob to the panel.
+        
+        Args:
+            name: The name for the new knob
+            value: The initial value for the new knob
+            
+        Returns:
+            True if successful
+        """
+        self._knobs[name] = 'filename_search'
+        self._values[name] = value
+        return True
+    
+    def addMultilineTextInput(self, name: str, value: str = "") -> bool:
+        """
+        Add a multi-line text knob to the panel.
+        
+        Args:
+            name: The name for the new knob
+            value: The initial value for the new knob
+            
+        Returns:
+            True if successful
+        """
+        self._knobs[name] = 'multiline_text_input'
+        self._values[name] = value
+        return True
+    
+    def addNotepad(self, name: str, value: str = "") -> bool:
+        """
+        Add a text edit widget to the panel.
+        
+        Args:
+            name: The name for the new knob
+            value: The initial value for the new knob
+            
+        Returns:
+            True if successful
+        """
+        self._knobs[name] = 'notepad'
+        self._values[name] = value
+        return True
+    
+    def addPasswordInput(self, name: str, value: str = "") -> bool:
+        """
+        Add a password input knob to the panel.
+        
+        Args:
+            name: The name for the new knob
+            value: The initial value for the new knob
+            
+        Returns:
+            True if successful
+        """
+        self._knobs[name] = 'password_input'
+        self._values[name] = value
+        return True
+    
+    def addRGBColorChip(self, name: str, value: Union[int, tuple, list] = 0) -> bool:
+        """
+        Add a color chooser to the panel.
+        
+        Args:
+            name: The name for the new knob
+            value: The initial value for the new knob (color value)
+            
+        Returns:
+            True if successful
+        """
+        self._knobs[name] = 'rgb_color_chip'
+        self._values[name] = value
+        return True
+    
+    def addScriptCommand(self, name: str, value: str = "") -> bool:
+        """
+        Add a script command evaluator to the panel.
+        
+        Args:
+            name: The name for the new knob
+            value: The initial value for the new knob
+            
+        Returns:
+            True if successful
+        """
+        self._knobs[name] = 'script_command'
+        self._values[name] = value
+        return True
+    
+    def addSingleLineInput(self, name: str, value: str = "") -> bool:
+        """
+        Add a single-line input knob to the panel.
+        
+        Args:
+            name: The name for the new knob
+            value: The initial value for the new knob
+            
+        Returns:
+            True if successful
+        """
+        self._knobs[name] = 'single_line_input'
+        self._values[name] = value
+        return True
+    
+    def addTextFontPulldown(self, name: str, value: str = "") -> bool:
+        """
+        Add a font chooser to the panel.
+        
+        Args:
+            name: The name for the new knob
+            value: The initial value for the new knob
+            
+        Returns:
+            True if successful
+        """
+        self._knobs[name] = 'text_font_pulldown'
+        self._values[name] = value
+        return True
+    
+    def clear(self) -> None:
+        """
+        Clear all panel attributes.
+        """
+        self._knobs.clear()
+        self._values.clear()
+    
+    def execute(self, name: str) -> Optional[str]:
+        """
+        Execute the script command associated with a particular label and return the
+        result as a string.
+        
+        Args:
+            name: The name of the script field to execute
+            
+        Returns:
+            The result of the script as a string, or None if it fails
+        """
+        if name in self._knobs and self._knobs[name] == 'script_command':
+            # In a real implementation, this would execute the script
+            # For now, just return the stored value
+            return str(self._values.get(name, ""))
+        return None
+    
+    def setTitle(self, val: str) -> bool:
+        """
+        Set the current title for the panel.
+        
+        Args:
+            val: The title as a string
+            
+        Returns:
+            True if successful
+        """
+        self._title = val
+        return True
+    
+    def setWidth(self, val: int) -> bool:
+        """
+        Set the width of the panel.
+        
+        Args:
+            val: The width as an int
+            
+        Returns:
+            True if successful
+        """
+        self._width = val
+        return True
+    
+    def show(self) -> int:
+        """
+        Display the panel.
+        
+        Returns:
+            An int value indicating how the dialog was closed (normally, or cancelled)
+        """
+        # In a real implementation, this would show the actual dialog
+        # For now, simulate showing and return 1 (OK)
+        print(f"Showing panel: {self._title}")
+        print(f"Panel width: {self._width}")
+        print("Panel contents:")
+        for name, knob_type in self._knobs.items():
+            value = self._values[name]
+            print(f"  {name} ({knob_type}): {value}")
+        return 1  # 1 typically means OK, 0 means cancelled
+    
+    def title(self) -> str:
+        """
+        Get the current title for the panel.
+        
+        Returns:
+            The title as a string
+        """
+        return self._title
+    
+    def value(self, name: str) -> Any:
+        """
+        Get the value of a particular control in the panel.
+        
+        Args:
+            name: The name of the knob to get a value from
+            
+        Returns:
+            The value for the field if any, otherwise None
+        """
+        return self._values.get(name, None)
+    
+    def width(self) -> int:
+        """
+        Get the width of the panel.
+        
+        Returns:
+            The width as an int
+        """
+        return self._width
+
 _root = Root()
 _menus = {"Nuke": Menu(), "Nodes": Menu()}
 _viewerWindows: List[ViewerWindow] = []
