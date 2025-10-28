@@ -76,6 +76,14 @@ class Menu(MenuItem):
         """
         pass
 
+    def items(self) -> list:
+        """
+        Returns a list of sub menu items.
+        Returns:
+            list: A list of all sub menu items.
+        """
+        return []
+
     def menu(self, name: str) -> "Menu":
         """
         Finds a submenu or command with a particular name.
@@ -238,9 +246,9 @@ class Int_Knob(Array_Knob):
         self._pyside_object.textChanged.connect(handle_text_changed)
 
 class Boolean_Knob(Array_Knob):
-    def __init__(self, name, label=None):
+    def __init__(self, name, label=None, value=False):
         super().__init__(name, label)
-        self._value: bool = False
+        self._value: bool = value
         self._pyside_object: QCheckBox = QCheckBox(self._label)
     
     def setValue(self, b: bool) -> bool:
