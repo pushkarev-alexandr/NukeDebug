@@ -1613,6 +1613,41 @@ class Panel:
         """
         return self._width
 
+class ProgressTask:
+    def __init__(self, title: str):
+        self._title = title
+        self._progress = 0
+        self._message = ""
+        self._is_cancelled = False
+
+    def isCancelled(self) -> bool:
+        """
+        Check if the progress task has been cancelled.
+        
+        Returns:
+            True if cancelled, False otherwise
+        """
+        return self._is_cancelled
+
+    def setMessage(self, message: str) -> None:
+        """
+        Set the message for the progress task.
+        
+        Args:
+            message: The message to set
+        """
+        self._message = message
+
+    def setProgress(self, progress: int) -> None:
+        """
+        Set the progress for the progress task.
+
+        Args:
+            progress: The progress value to set (0-100)
+        """
+        if progress < 101:
+            self._progress = max(0, progress)
+
 _root = Root()
 _menus = {"Nuke": Menu(), "Nodes": Menu()}
 _viewerWindows: List[ViewerWindow] = []
