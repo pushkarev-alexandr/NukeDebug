@@ -35,7 +35,7 @@ class Menu(MenuItem):
         """
         pass
 
-    def addMenu(self, **kwargs) -> "Menu":
+    def addMenu(self, name: str, icon: str = "", tooltip: str = "", index: int = -1) -> "Menu":
         """
         Add a new submenu.
         Args:
