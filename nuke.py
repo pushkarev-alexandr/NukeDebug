@@ -44,7 +44,7 @@ class Menu(MenuItem):
         Returns:
             Menu: The submenu that was added.
         """
-        pass
+        return Menu()
     
     def addSeparator(self, **kwargs) -> MenuItem:
         """
