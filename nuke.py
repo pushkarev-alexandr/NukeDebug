@@ -1,23 +1,10 @@
+from variables import *
 from typing import overload, Any, Union, List, Dict, Callable, Literal, Type, Optional
 import os, re, sys
 
 from PySide2.QtWidgets import QApplication, QLineEdit, QCheckBox, QComboBox, QPlainTextEdit, QLabel, QWidget, QWidgetItem, QPushButton
 from PySide2.QtGui import QIntValidator
 
-STARTLINE = 1
-
-NUKE_VERSION_MAJOR = 15
-NUKE_VERSION_MINOR = 1
-NUKE_VERSION_RELEASE = 5
-NUKE_VERSION_STRING = f"{NUKE_VERSION_MAJOR}.{NUKE_VERSION_MINOR}v{NUKE_VERSION_RELEASE}"
-NUKE_VERSION_PHASE = ""
-NUKE_VERSION_PHASENUMBER = 258239
-
-GUI = 0
-
-EXPRESSIONS = 1
-INPUTS = 2
-HIDDEN_INPUTS = 4
 
 app = QApplication(sys.argv)
 
