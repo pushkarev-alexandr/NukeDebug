@@ -1,4 +1,4 @@
-from typing import overload, Any, Union, List, Dict, Callable, Literal, Type
+from typing import overload, Any, Union, List, Dict, Callable, Literal, Type, Optional
 import os, re, sys
 
 from PySide2.QtWidgets import QApplication, QLineEdit, QCheckBox, QComboBox, QPlainTextEdit, QLabel, QWidget, QWidgetItem, QPushButton
