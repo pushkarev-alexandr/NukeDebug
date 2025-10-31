@@ -12,7 +12,65 @@ _pluginPath: List[str] = [os.path.expanduser("~/.nuke").replace("\\", "/")]
 
 class MenuItem:
     def __init__(self):
+        self._name: str = ""
+        self._icon: str = ""
+        self._script: str = ""
+        self._enabled: bool = True
+        self._shortcut: str = ""
+
+    def icon(self) -> str:
+        """Returns the name of the icon on this menu item as path of the icon."""
+        return self._icon
+
+    def invoke(self):
+        """Perform the action associated with this menu item."""
         pass
+
+    def name(self) -> str:
+        """Returns the name of the menu item."""
+        return self._name
+
+    def script(self) -> str:
+        """Returns the script that gets executed for this menu item."""
+        return self._script
+
+    def setEnabled(self, enabled: bool) -> None:
+        """
+        Enable or disable the item.
+        Args:
+            enabled (bool): True to enable the object; False to disable it.
+        """
+        self._enabled = enabled
+
+    def setIcon(self, icon: str) -> None:
+        """
+        Set the icon on this menu item
+        Args:
+            icon (str): the new icon as a path
+        """
+        self._icon = icon
+
+    def setScript(self, script: str) -> None:
+        """
+        Set the script to be executed for this menu item.
+        Note: To call a python script file, you can use the execfile() function. i.e: menu.setScript("execfile('script.py')")
+        """
+        self._script = script
+
+    def setShortcut(self, keySequence: str) -> None:
+        """
+        Set the keyboard shortcut on this menu item.
+        Args:
+            keySequence (str): the new shortcut in PortableText format, e.g. "Ctrl+Shift+P"
+        """
+        self._shortcut = keySequence
+
+    def shortcut(self) -> str:
+        """
+        Returns the keyboard shortcut on this menu item. The format of this is the PortableText format. It will return a string such as "Ctrl+Shift+P".
+        Note that on Mac OS X the Command key is equivalent to Ctrl.
+        """
+        return self._shortcut
 
 class Menu(MenuItem):
     def __init__(self):
@@ -93,6 +151,20 @@ class Menu(MenuItem):
             Menu: The submenu or command we found, or None if we could not find anything.
         """
 
+    def name(self) -> str:
+        """Returns the name of the menu item."""
+        return self._name
+    
+    def removeItem(self, name) -> bool:
+        """
+        Removes a submenu or command with a particular name. If the containing menu becomes empty, it will be removed too.
+        Args:
+            name (str): The name to remove for.
+        Returns:
+            bool: True if removed, False if menu not found
+        """
+        return False
+
 class Format:
     def __init__(self, width: int, height: int, x: int, y: int, r: int, t: int, pixelAspect: float = 1.0):
         self._name: str = ""
@@ -156,6 +228,7 @@ class Knob:
         self._flag = 0
         self._tooltip: str = ""
         self._visible = True
+        self._enabled = True
         self._pyside_object: QWidget = QWidget()
         self._pyside_object_label_item: QWidgetItem = None
         self._panel = None
@@ -188,6 +261,14 @@ class Knob:
         """Returns whether the input flag is set.
         TODO Reimplement to return bool value"""
         return self._flag
+
+    def setEnabled(self, enabled) -> None:
+        """
+        Enable or disable the knob.
+        Args:
+            enabled (bool): True to enable the knob, False to disable it.
+        """
+        self._enabled = enabled
 
     def setFlag(self, f):
         self._flag = f
@@ -248,8 +329,8 @@ class Int_Knob(Array_Knob):
 class Boolean_Knob(Array_Knob):
     def __init__(self, name, label=None, value=False):
         super().__init__(name, label)
-        self._value: bool = value
         self._pyside_object: QCheckBox = QCheckBox(self._label)
+        self.setValue(value)
     
     def setValue(self, b: bool) -> bool:
         """Set the boolean value of this knob."""
