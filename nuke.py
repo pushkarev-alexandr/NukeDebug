@@ -1,10 +1,12 @@
 from variables import *
 from typing import overload, Any, Union, List, Dict, Callable, Literal, Type, Optional
-import os, re, sys
+import os, re, sys, tempfile
+from ocio_aces12_colorspaces import colorspaces_list
 
 from PySide2.QtWidgets import QApplication, QLineEdit, QCheckBox, QComboBox, QPlainTextEdit, QLabel, QWidget, QWidgetItem, QPushButton
 from PySide2.QtGui import QIntValidator
 
+os.environ["NUKE_TEMP_DIR"] = os.path.join(tempfile.gettempdir(), "nuke").replace("\\", "/")
 
 app = QApplication(sys.argv)
 
@@ -76,7 +78,7 @@ class Menu(MenuItem):
     def __init__(self):
         super().__init__()
     
-    def addCommand(self, name: str, command: Union[str, Callable] = None, shortcut: str = "", icon: str = "", tooltip: str = "", index: int = -1, readonly: bool = False) -> MenuItem:
+    def addCommand(self, name: str, command: Union[str, Callable] = None, shortcut: str = "", icon: str = "", tooltip: str = "", index: int = -1, readonly: bool = False, shortcutContext: int = None) -> MenuItem:
         """
         Add a new command to this menu/toolbar. Note that when invoked, the command is automatically enclosed in an undo group, so that undo/redo functionality works. Optional arguments can be specified by name. Note that if the command argument is not specified, then the command will be auto-created as a "nuke.createNode()" using the name argument as the node to create.
         Example: menubar = nuke.menu('Nuke') fileMenu = menubar.findItem('File') fileMenu.addCommand('NewCommand', 'print 10', shortcut='t')
@@ -240,6 +242,9 @@ class Knob:
     
     def value(self):
         return self._value.split("\t\t\t")[0] if isinstance(self._value, str) else self._value
+
+    def getValue(self):
+        return self.value()
 
     def name(self):
         return self._name
@@ -702,9 +707,11 @@ class Root(Group):
         super().__init__()
         kn = Enumeration_Knob("colorManagement", "color management")
         kn.setValues(["Nuke", "OCIO"])
+        kn.setValue("OCIO")
         self.addKnob(kn)
         kn = Enumeration_Knob("OCIO_config", "OCIO config")
         kn.setValues(["aces_1.2\tACES/aces_1.2\t\t", "fn-nuke_cg-config-v1.0.0_aces-v1.3_ocio-v2.1\tACES/fn-nuke_cg-config-v1.0.0_aces-v1.3_ocio-v2.1\t\tcg-config-v1.0.0_aces-v1.3_ocio-v2.1", "fn-nuke_studio-config-v1.0.0_aces-v1.3_ocio-v2.1\tACES/fn-nuke_studio-config-v1.0.0_aces-v1.3_ocio-v2.1\t\tstudio-config-v1.0.0_aces-v1.3_ocio-v2.1", "nuke-default", "custom"])
+        kn.setValue("aces_1.2")
         self.addKnob(kn)
         kn = Array_Knob("fps")
         kn.setValue(24)
@@ -756,6 +763,7 @@ class Read(Node):
 class Write(Node):
     def __init__(self):
         super().__init__()
+        self.addKnob(ChannelMask_Knob("channels"))
         self.addKnob(File_Knob("file", ""))
         kn = Enumeration_Knob("file_type", "file type")
         kn.setValues([" ", "cin", "dpx", "exr", "hdr", "jpeg", "mov\t\t\tffmpeg", "mxf", "null", "pic", "png", "sgi", "targa", "tiff", "xpm", "yuv"])
@@ -763,7 +771,9 @@ class Write(Node):
         kn = Enumeration_Knob("mov64_codec", "Codec")
         kn.setValues(['', '', '', 'ap4x\t\x07', 'ap4h\t\x07', 'apch\t\x07', 'apcn\t\x07', 'apcs\t\x07', 'apco\t\x07', 'mp1v\t\x07', 'rle \tAnimation', 'appr\tApple ProRes', 'AVdn\tAvid DNxHD', 'AVdh\tAvid DNxHR', 'h264\tH.264', 'mjpa\tMotion JPEG A', 'mjpb\tMotion JPEG B', 'mp4v\tMPEG-4', 'jpeg\tPhoto - JPEG', 'png \tPNG', 'v210\tUncompressed'])
         self.addKnob(kn)
-        self.addKnob(Enumeration_Knob("colorspace", "Output Transform"))
+        kn = Enumeration_Knob("colorspace", "Output Transform")
+        kn.setValues(colorspaces_list)
+        self.addKnob(kn)
 
 class Copy(Node):
     def __init__(self):
