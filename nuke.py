@@ -1,6 +1,7 @@
 from variables import *
 from typing import overload, Any, Union, List, Dict, Callable, Literal, Type, Optional
 import os, re, sys, tempfile
+from tcl import tcl
 from ocio_aces12_colorspaces import colorspaces_list
 
 from PySide2.QtWidgets import QApplication, QLineEdit, QCheckBox, QComboBox, QPlainTextEdit, QLabel, QWidget, QWidgetItem, QPushButton
@@ -370,6 +371,10 @@ class String_Knob(Knob):
 class EvalString_Knob(String_Knob):
     def __init__(self, name, label=None):
         super().__init__(name, label)
+    
+    def evaluate(self) -> str:
+        """Evaluate the string, performing substitutions."""
+        return tcl.eval(self.value().strip("[]"))
 
 class Multiline_Eval_String_Knob(EvalString_Knob):
     def __init__(self, name, label=None):
@@ -1146,6 +1151,9 @@ def scriptSaveAs(filename: str = None, overwrite: int = -1) -> None:
     """
     root().setName(filename)
 
+
+# Callback registration functions
+
 def addOnCreate(call, args=(), kwargs={}, nodeClass="*"):
     """Add code to execute when a node is created or undeleted"""
     pass
@@ -1169,6 +1177,7 @@ def addOnScriptSave(call, args=(), kwargs={}, nodeClass="Root"):
 def addOnUserCreate(call, args=(), kwargs={}, nodeClass="*"):
     """Add code to execute when user creates a node"""
     pass
+
 
 def thisClass() -> str:
     """Get the class name of the current node. This equivalent to calling nuke.thisNode().Class(), only faster."""
