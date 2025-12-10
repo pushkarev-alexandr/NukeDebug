@@ -744,6 +744,23 @@ class Root(Group):
     def setName(self, name):
         self._data["name"].setValue(name.replace("\\", "/"))
 
+class Preferences(Node):
+    def __init__(self):
+        super().__init__()
+        self._data["name"].setValue("Preferences")
+
+        kn = EvalString_Knob("AutoSaveName", "autosave filename")
+        kn.setValue("[firstof [value root.name] [getenv NUKE_TEMP_DIR]/].autosave")
+        self.addKnob(kn)
+
+        kn = Array_Knob("AutoSaveIdle", "autosave after idle for")
+        kn.setValue(5.0)
+        self.addKnob(kn)
+
+        kn = Array_Knob("AutoSaveTime", "force autosave after")
+        kn.setValue(30.0)
+        self.addKnob(kn)
+
 class Dot(Node):
     def __init__(self):
         super().__init__()
@@ -944,6 +961,10 @@ def toNode(s: str) -> Node:
     for node in allNodes():
         if node.name() == s:
             return node
+    if s == "root":
+        return root()
+    if s == "preferences":
+        return _preferences
     return None
 
 def getFileNameList(dir: str, splitSequences: bool = False, extraInformation: bool = False, returnDirs: bool = True, returnHidden: bool = False) -> List[str]:
@@ -1739,6 +1760,7 @@ class ProgressTask:
             self._progress = max(0, progress)
 
 _root = Root()
+_preferences = Preferences()
 _menus = {"Nuke": Menu(), "Nodes": Menu()}
 _viewerWindows: List[ViewerWindow] = []
 _viewerWindows.append(ViewerWindow(createNode("Viewer")))
