@@ -374,7 +374,7 @@ class EvalString_Knob(String_Knob):
     
     def evaluate(self) -> str:
         """Evaluate the string, performing substitutions."""
-        return tcl.eval(self.value().strip("[]"))
+        return tcl.eval(f"return {self.value()}")
 
 class Multiline_Eval_String_Knob(EvalString_Knob):
     def __init__(self, name, label=None):
@@ -714,6 +714,8 @@ class Group(Node):
 class Root(Group):
     def __init__(self):
         super().__init__()
+        self._data["name"].setValue("")
+
         kn = Enumeration_Knob("colorManagement", "color management")
         kn.setValues(["Nuke", "OCIO"])
         kn.setValue("OCIO")

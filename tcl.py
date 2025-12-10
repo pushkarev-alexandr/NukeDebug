@@ -10,3 +10,4 @@ def value(knob_path: str) -> str:
 
 tcl.createcommand('getenv', os.getenv)
 tcl.createcommand('value', value)
+tcl.createcommand('firstof', lambda *args: next((arg for arg in args if arg), ''))
