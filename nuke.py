@@ -387,6 +387,10 @@ class Multiline_Eval_String_Knob(EvalString_Knob):
             self._panel.knobChanged(self)
         self._pyside_object.textChanged.connect(handle_text_changed)
 
+class Tab_Knob(Knob):
+    def __init__(self, name, label=None):
+        super().__init__(name, label)
+
 class Text_Knob(Knob):
     def __init__(self, name, label=None):
         super().__init__(name, label)
