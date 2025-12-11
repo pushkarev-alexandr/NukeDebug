@@ -2,6 +2,7 @@ from variables import *
 from typing import overload, Any, Union, List, Dict, Callable, Literal, Type, Optional
 import os, re, sys, tempfile
 from tcl import tcl
+from callbacks import *
 from ocio_aces12_colorspaces import colorspaces_list
 
 from PySide2.QtWidgets import QApplication, QLineEdit, QCheckBox, QComboBox, QPlainTextEdit, QLabel, QWidget, QWidgetItem, QPushButton
@@ -374,7 +375,7 @@ class EvalString_Knob(String_Knob):
     
     def evaluate(self) -> str:
         """Evaluate the string, performing substitutions."""
-        return tcl.eval(f"return {self.value()}")
+        return tcl(f"return {self.value()}")
 
 class Multiline_Eval_String_Knob(EvalString_Knob):
     def __init__(self, name, label=None):
@@ -1123,7 +1124,7 @@ def scriptNew():
 def scriptOpen(file: str):
     """Opens a new script containing the contents of the named file."""
     root().setName(file)
-    for callback_info in _onScriptLoadCallbacks:
+    for callback_info in onScriptLoads:
         callback_info["call"](*callback_info["args"], **callback_info["kwargs"])
 
 def scriptReadFile(file: str):
@@ -1152,34 +1153,6 @@ def scriptSaveAs(filename: str = None, overwrite: int = -1) -> None:
         overwrite (int): If 1 (true) always overwrite; if 0 (false) never overwrite; otherwise, in GUI mode ask the user, in terminal do same as False. Default is -1, meaning 'ask the user'.    
     """
     root().setName(filename)
-
-
-# Callback registration functions
-
-def addOnCreate(call, args=(), kwargs={}, nodeClass="*"):
-    """Add code to execute when a node is created or undeleted"""
-    pass
-
-def addOnDestroy(call, args=(), kwargs={}, nodeClass="*"):
-    """Add code to execute when a node is destroyed"""
-    pass
-
-def addOnScriptClose(call, args=(), kwargs={}, nodeClass="Root"):
-    """Add code to execute before a script is closed"""
-    pass
-
-def addOnScriptLoad(call, args=(), kwargs={}, nodeClass="Root"):
-    """Add code to execute when a script is loaded"""
-    _onScriptLoadCallbacks.append({"call": call, "args": args, "kwargs": kwargs})
-
-def addOnScriptSave(call, args=(), kwargs={}, nodeClass="Root"):
-    """Add code to execute before a script is saved"""
-    pass
-
-def addOnUserCreate(call, args=(), kwargs={}, nodeClass="*"):
-    """Add code to execute when user creates a node"""
-    pass
-
 
 def thisClass() -> str:
     """Get the class name of the current node. This equivalent to calling nuke.thisNode().Class(), only faster."""
@@ -1775,4 +1748,3 @@ _preferences = Preferences()
 _menus = {"Nuke": Menu(), "Nodes": Menu()}
 _viewerWindows: List[ViewerWindow] = []
 _viewerWindows.append(ViewerWindow(createNode("Viewer")))
-_onScriptLoadCallbacks = []
