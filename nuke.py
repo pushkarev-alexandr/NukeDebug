@@ -5,8 +5,12 @@ from tcl import tcl
 from callbacks import *
 from ocio_aces12_colorspaces import colorspaces_list
 
-from PySide2.QtWidgets import QApplication, QLineEdit, QCheckBox, QComboBox, QPlainTextEdit, QLabel, QWidget, QWidgetItem, QPushButton
-from PySide2.QtGui import QIntValidator
+try:
+    from PySide2.QtWidgets import QApplication, QLineEdit, QCheckBox, QComboBox, QPlainTextEdit, QLabel, QWidget, QWidgetItem, QPushButton
+    from PySide2.QtGui import QIntValidator
+except ImportError:
+    from PySide6.QtWidgets import QApplication, QLineEdit, QCheckBox, QComboBox, QPlainTextEdit, QLabel, QWidget, QWidgetItem, QPushButton
+    from PySide6.QtGui import QIntValidator
 
 os.environ["NUKE_TEMP_DIR"] = os.path.join(tempfile.gettempdir(), "nuke").replace("\\", "/")
 
@@ -562,17 +566,25 @@ class Node:
     def Class(self):
         return self.__class__.__name__
 
+    def addKnob(self, k: Knob) -> None:
+        """Add knob k to this node or panel."""
+        self._data[k.name()] = k
+        k._node = self
+
+    def allKnobs(self) -> List[Knob]:
+        """Get a list of all knobs in this node, including nameless knobs."""
+        return list(self._data.values())
+
     def autoplace(self) -> None:
         """Automatically place nodes, so they do not overlap."""
         pass
 
+    def firstFrame(self) -> int:
+        """First frame in frame range for this node."""
+        return 0
+
     def knob(self, name):
         return self._data.get(name)
-    
-    def addKnob(self, k: Knob):
-        """Add knob k to this node or panel."""
-        self._data[k.name()] = k
-        k._node = self
 
     def setName(self, name, uncollide=True, updateExpressions=False):
         name = name.rstrip("0123456789")
@@ -589,6 +601,10 @@ class Node:
         """List channels output by this node."""
         # TODO Сделать чтобы нода спрашивала у нод сверху какие каналы есть
         return self._channels
+
+    def lastFrame(self) -> int:
+        """Last frame in frame range for this node."""
+        return 0
 
     def metadata(self, key: str=None, time: float=1001, view=None) -> Union[dict, str, None]:
         """
